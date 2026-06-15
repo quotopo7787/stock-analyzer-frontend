@@ -28,7 +28,7 @@ export default function AppLayout() {
         </Toolbar>
       </AppBar>
 
-      <Container sx={{ mt: 4 }}>
+      <Container sx={{ mt: 4, mb: 4 }} maxWidth="xl">
         <Outlet />
       </Container>
     </Box>
