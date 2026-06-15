@@ -6,6 +6,7 @@ import StockDetailPage from "./pages/StockDetailPage";
 import FinancialStatementFormPage from "./pages/FinancialStatementFormPage";
 import RankingPage from "./pages/RankingPage";
 import InvestmentThesisPage from "./pages/InvestmentThesisPage";
+import WatchlistPage from "./pages/WatchlistPage";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="stocks/:code" element={<StockDetailPage />} />
           <Route path="financial-statements/new" element={<FinancialStatementFormPage />} />
           <Route path="rankings" element={<RankingPage />} />
+          <Route path="watchlist" element={<WatchlistPage />} />
           <Route path="investment-thesis" element={<InvestmentThesisPage />} />
         </Route>
       </Routes>

@@ -25,6 +25,10 @@ export default function AppLayout() {
           <Button color="inherit" component={Link} to="/rankings">
             Xếp hạng
           </Button>
+
+          <Button color="inherit" component={Link} to="/watchlist">
+            Watchlist
+          </Button>
         </Toolbar>
       </AppBar>
 
