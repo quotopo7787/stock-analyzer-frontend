@@ -26,6 +26,10 @@ export default function AppLayout() {
             Xếp hạng
           </Button>
 
+          <Button color="inherit" component={Link} to="/data-quality">
+            Dữ liệu
+          </Button>
+
           <Button color="inherit" component={Link} to="/watchlist">
             Watchlist
           </Button>

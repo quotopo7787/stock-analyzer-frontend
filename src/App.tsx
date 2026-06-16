@@ -7,6 +7,7 @@ import FinancialStatementFormPage from "./pages/FinancialStatementFormPage";
 import RankingPage from "./pages/RankingPage";
 import InvestmentThesisPage from "./pages/InvestmentThesisPage";
 import WatchlistPage from "./pages/WatchlistPage";
+import DataQualityPage from "./pages/DataQualityPage";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="rankings" element={<RankingPage />} />
           <Route path="watchlist" element={<WatchlistPage />} />
           <Route path="investment-thesis" element={<InvestmentThesisPage />} />
+          <Route path="data-quality" element={<DataQualityPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
