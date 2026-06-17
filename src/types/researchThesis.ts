@@ -7,7 +7,9 @@ export type ResearchThesisStatus =
 
 export interface ResearchThesisDraft {
   id: string;
+  backendId?: number;
   stockCode: string;
+  year?: number;
   thesisStatus: ResearchThesisStatus;
   bullCase: string[];
   bearCase: string[];

@@ -54,6 +54,7 @@ import type { ResearchThesisDraft, ResearchThesisStatus } from "../types/researc
 type BadgeColor = "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info";
 
 const currentYear = new Date().getFullYear();
+const detailRequestTimeoutMs = 15000;
 
 const defaultFilters: OpportunityQueryParams = {
   fromYear: 2023,
@@ -217,13 +218,16 @@ export default function OpportunitiesPage() {
     setDetailLoading(true);
 
     try {
-      const response = await opportunitiesApi.getOpportunityDetail(item.code, {
-        fromYear: appliedFilters.fromYear,
-        toYear: appliedFilters.toYear,
-      });
+      const response = await withTimeout(
+        opportunitiesApi.getOpportunityDetail(item.code, {
+          fromYear: appliedFilters.fromYear,
+          toYear: appliedFilters.toYear,
+        }),
+        detailRequestTimeoutMs
+      );
       setDetail(response);
     } catch (error) {
-      console.error(error);
+      console.warn("Opportunity detail fallback", error);
       setDetailError("Không tải được chi tiết mã này. Tạm thời hiển thị dữ liệu tóm tắt trên bảng.");
       setDetail(item as OpportunityDetailItem);
     } finally {
@@ -1327,6 +1331,19 @@ function watchlistReason(detail: OpportunityDetailItem) {
 
 function isTechnicalDetailText(value: string) {
   return /Guardrail|Price Signal|rule MVP|rule v1|signalScore|Debt\/Equity/i.test(value);
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error("Request timed out"));
+    }, timeoutMs);
+
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timeoutId));
+  });
 }
 
 function humanizeDetailText(value: string) {

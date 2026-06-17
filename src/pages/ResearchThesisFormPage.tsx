@@ -17,7 +17,9 @@ import {
   createResearchThesisDraftId,
   researchThesisDraftStorage,
 } from "../api/researchThesisDraftStorage";
+import { investmentThesisApi } from "../api/investmentThesisApi";
 import { watchlistApi } from "../api/watchlistApi";
+import type { InvestmentThesis } from "../types/investmentThesis";
 import type { ResearchThesisDraft, ResearchThesisStatus } from "../types/researchThesis";
 import type { ReactNode } from "react";
 
@@ -53,6 +55,7 @@ export default function ResearchThesisFormPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draftId");
+  const thesisId = Number(searchParams.get("thesisId") || 0) || null;
   const stockCodeParam = searchParams.get("stockCode")?.trim().toUpperCase() ?? "";
   const initialDraft = useMemo(
     () => (draftId ? researchThesisDraftStorage.getById(draftId) ?? emptyDraft() : emptyDraft(stockCodeParam)),
@@ -68,6 +71,29 @@ export default function ResearchThesisFormPage() {
     setDraft(initialDraft);
   }, [initialDraft]);
 
+  useEffect(() => {
+    if (!thesisId) return;
+
+    let ignore = false;
+    investmentThesisApi
+      .getById(thesisId)
+      .then((thesis) => {
+        if (!ignore) {
+          setDraft(investmentThesisToDraft(thesis));
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!ignore) {
+          setErrorMessage("Không tải được hồ sơ nghiên cứu từ backend.");
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [thesisId]);
+
   const updateField = <K extends keyof ResearchThesisDraft>(field: K, value: ResearchThesisDraft[K]) => {
     setDraft((prev) => ({
       ...prev,
@@ -75,9 +101,9 @@ export default function ResearchThesisFormPage() {
     }));
   };
 
-  const isEditing = Boolean(draftId);
+  const isEditing = Boolean(draftId || thesisId || draft.backendId);
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     const stockCode = draft.stockCode.trim().toUpperCase();
     const validationError = validateDraft(draft);
     if (validationError) {
@@ -87,9 +113,7 @@ export default function ResearchThesisFormPage() {
     }
 
     try {
-      const existingDraft = researchThesisDraftStorage.getByStockCode(stockCode);
-      const isUpdate = Boolean(draftId || existingDraft);
-      const saved = researchThesisDraftStorage.save({
+      const saved = await persistDraftToBackend({
         ...draft,
         stockCode,
         id: draft.id.includes("MANUAL") && stockCode ? createResearchThesisDraftId(stockCode) : draft.id,
@@ -97,7 +121,7 @@ export default function ResearchThesisFormPage() {
 
       setDraft(saved);
       setErrorMessage("");
-      setSavedMessage(isUpdate ? "Đã cập nhật hồ sơ nghiên cứu." : "Đã lưu hồ sơ nghiên cứu.");
+      setSavedMessage(isEditing ? "Đã cập nhật hồ sơ nghiên cứu." : "Đã lưu hồ sơ nghiên cứu.");
     } catch (err) {
       console.error(err);
       setSavedMessage("");
@@ -117,30 +141,21 @@ export default function ResearchThesisFormPage() {
       setWatchlistLoading(true);
       setSavedMessage("");
       setErrorMessage("");
-      const existingWatchlistItem = await findWatchlistItem(stockCode);
-      if (existingWatchlistItem) {
-        await watchlistApi.updateStatus(existingWatchlistItem.id, { status: "WATCHING" });
-        const saved = researchThesisDraftStorage.save({
-          ...draft,
-          stockCode,
-          thesisStatus: "WATCHLIST",
-        });
-        setDraft(saved);
-        setSavedMessage(`${stockCode} đã có trong danh sách theo dõi.`);
-      } else {
-        await watchlistApi.create({
-          stockCode,
-          reason: watchlistReasonFromDraft(draft),
-        });
 
-        const saved = researchThesisDraftStorage.save({
-          ...draft,
-          stockCode,
-          thesisStatus: "WATCHLIST",
-        });
-        setDraft(saved);
-        setSavedMessage(`Đã thêm ${stockCode} vào danh sách theo dõi.`);
+      const saved = await persistDraftToBackend({
+        ...draft,
+        stockCode,
+        id: draft.id.includes("MANUAL") && stockCode ? createResearchThesisDraftId(stockCode) : draft.id,
+        thesisStatus: "WATCHLIST",
+      });
+      setDraft(saved);
+
+      if (!saved.backendId) {
+        throw new Error("Backend chưa trả về thesis id.");
       }
+
+      await watchlistApi.addFromThesis(saved.backendId);
+      setSavedMessage(`Đã thêm ${stockCode} vào danh sách theo dõi.`);
     } catch (err) {
       console.error(err);
       setSavedMessage("");
@@ -416,19 +431,53 @@ function splitLines(value: string) {
     .filter(Boolean);
 }
 
-function watchlistReasonFromDraft(draft: ResearchThesisDraft) {
-  const bullCase = draft.bullCase[0] ? `Luận điểm chính: ${draft.bullCase[0]}` : "";
-  const risk = draft.keyRisks[0] ? `Rủi ro cần theo dõi: ${draft.keyRisks[0]}` : "";
-  const note = draft.personalNote ? `Ghi chú: ${draft.personalNote}` : "";
-  return ["Từ hồ sơ nghiên cứu.", bullCase, risk, note].filter(Boolean).join(" ");
+async function persistDraftToBackend(draft: ResearchThesisDraft) {
+  const saved = await investmentThesisApi.saveManual({
+    id: draft.backendId,
+    stockCode: draft.stockCode.trim().toUpperCase(),
+    year: draft.year ?? new Date().getFullYear(),
+    thesisStatus: draft.thesisStatus,
+    bullCase: draft.bullCase,
+    bearCase: draft.bearCase,
+    keyRisks: draft.keyRisks,
+    missingData: draft.missingData,
+    buyConditions: draft.buyConditions,
+    rejectConditions: draft.rejectConditions,
+    personalNote: draft.personalNote,
+    nextReviewDate: draft.nextReviewDate,
+    source: draft.source ?? "MANUAL",
+  });
+
+  const nextDraft = investmentThesisToDraft(saved, draft.id);
+  return researchThesisDraftStorage.save(nextDraft);
 }
 
-async function findWatchlistItem(stockCode: string) {
-  try {
-    return await watchlistApi.getByStockCode(stockCode);
-  } catch {
-    return null;
+function investmentThesisToDraft(thesis: InvestmentThesis, existingId?: string): ResearchThesisDraft {
+  return {
+    id: existingId ?? `BE-${thesis.id}`,
+    backendId: thesis.id,
+    stockCode: thesis.stockCode,
+    year: thesis.year,
+    thesisStatus: normalizeResearchStatus(thesis.thesisStatus ?? thesis.decision),
+    bullCase: thesis.bullCase ?? [],
+    bearCase: thesis.bearCase ?? [],
+    keyRisks: thesis.keyRisks ?? thesis.redFlags ?? [],
+    missingData: thesis.missingData ?? thesis.researchQuestions ?? [],
+    buyConditions: thesis.buyConditions ?? [],
+    rejectConditions: thesis.rejectConditions ?? [],
+    personalNote: thesis.personalNote ?? "",
+    nextReviewDate: thesis.nextReviewDate ?? "",
+    source: thesis.source === "OPPORTUNITIES" ? "OPPORTUNITIES" : "MANUAL",
+    createdAt: thesis.createdAt,
+    updatedAt: thesis.updatedAt ?? thesis.createdAt,
+  };
+}
+
+function normalizeResearchStatus(value?: string): ResearchThesisStatus {
+  if (value === "RESEARCHING" || value === "WATCHLIST" || value === "WAITING_DATA" || value === "REJECTED") {
+    return value;
   }
+  return "DRAFT";
 }
 
 function decisionLabel(value: string) {

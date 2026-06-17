@@ -8,7 +8,6 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Grid,
   Paper,
   Stack,
   TextField,
@@ -103,10 +102,8 @@ export default function InvestmentThesisPage() {
     <Box>
       <Stack
         direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", md: "center" }}
         spacing={2}
-        sx={{ mb: 3 }}
+        sx={{ mb: 3, justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
       >
         <Box>
           <Typography variant="h4" gutterBottom>
@@ -125,8 +122,15 @@ export default function InvestmentThesisPage() {
             Bộ lọc và thao tác
           </Typography>
 
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "4fr 3fr 5fr" },
+              gap: 2,
+              alignItems: "start",
+            }}
+          >
+            <Box>
               <TextField
                 label="Mã cổ phiếu"
                 placeholder="VD: FPT, HPG, MWG"
@@ -134,9 +138,9 @@ export default function InvestmentThesisPage() {
                 value={stockCode}
                 onChange={(e) => setStockCode(e.target.value.toUpperCase())}
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={3}>
+            <Box>
               <TextField
                 label="Năm"
                 type="number"
@@ -145,9 +149,9 @@ export default function InvestmentThesisPage() {
                 onChange={(e) => setYear(Number(e.target.value))}
                 helperText="Năm dùng để tạo hồ sơ"
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={5}>
+            <Box>
               <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                 <Button
                   variant="outlined"
@@ -167,8 +171,8 @@ export default function InvestmentThesisPage() {
                   {generating ? "Đang tạo..." : "Tạo hồ sơ mới"}
                 </Button>
               </Stack>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
@@ -241,10 +245,8 @@ function ThesisCard({
       <CardContent>
         <Stack
           direction={{ xs: "column", md: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", md: "center" }}
           spacing={2}
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
         >
           <Box>
             <Typography variant="h6">

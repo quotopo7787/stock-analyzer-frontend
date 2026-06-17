@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
   Stack,
   TextField,
   Typography,
@@ -152,8 +151,14 @@ export default function FinancialStatementFormPage() {
               </Alert>
             )}
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+                gap: 2,
+              }}
+            >
+              <Box>
                 <TextField
                   label="Mã cổ phiếu"
                   placeholder="VD: FPT, HPG, MWG"
@@ -162,9 +167,9 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleTextChange("stockCode", e.target.value)}
                   helperText="Mã chứng khoán của doanh nghiệp"
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
+              <Box>
                 <TextField
                   label="Năm báo cáo"
                   type="number"
@@ -173,9 +178,9 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleNumberChange("year", e.target.value)}
                   helperText="Đơn vị: năm. Ví dụ: 2024"
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
+              <Box>
                 <TextField
                   label="Doanh thu"
                   type="number"
@@ -184,9 +189,9 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleNumberChange("revenue", e.target.value)}
                   helperText="Đơn vị: VND. Ví dụ 465 tỷ nhập 465000000000"
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
+              <Box>
                 <TextField
                   label="Lợi nhuận sau thuế"
                   type="number"
@@ -195,9 +200,9 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleNumberChange("netProfit", e.target.value)}
                   helperText="Đơn vị: VND. Lợi nhuận ròng sau thuế"
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
+              <Box>
                 <TextField
                   label="Dòng tiền kinh doanh"
                   type="number"
@@ -206,9 +211,9 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleNumberChange("operatingCashFlow", e.target.value)}
                   helperText="Đơn vị: VND. CFO / dòng tiền từ hoạt động kinh doanh"
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
+              <Box>
                 <TextField
                   label="Tổng tài sản"
                   type="number"
@@ -217,9 +222,9 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleNumberChange("totalAssets", e.target.value)}
                   helperText="Đơn vị: VND. Tổng tài sản cuối kỳ"
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
+              <Box>
                 <TextField
                   label="Tổng nợ phải trả"
                   type="number"
@@ -228,9 +233,9 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleNumberChange("totalLiabilities", e.target.value)}
                   helperText="Đơn vị: VND. Tổng liabilities / nợ phải trả"
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
+              <Box>
                 <TextField
                   label="Vốn chủ sở hữu"
                   type="number"
@@ -239,8 +244,8 @@ export default function FinancialStatementFormPage() {
                   onChange={(e) => handleNumberChange("equity", e.target.value)}
                   helperText="Đơn vị: VND. Equity / vốn chủ sở hữu"
                 />
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             <Stack direction="row" spacing={2}>
               <Button

@@ -18,10 +18,9 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate } from "react-router-dom";
-import { researchThesisDraftStorage } from "../api/researchThesisDraftStorage";
 import { watchlistApi } from "../api/watchlistApi";
-import type { ResearchThesisDraft, ResearchThesisStatus } from "../types/researchThesis";
-import type { WatchlistItem } from "../types/watchlist";
+import type { ResearchThesisStatus } from "../types/researchThesis";
+import type { WatchlistItem, WatchlistSummary } from "../types/watchlist";
 
 type SortMode = "UPDATED_DESC" | "REVIEW_ASC" | "CODE_ASC";
 
@@ -31,8 +30,10 @@ interface WatchlistViewItem {
   industry?: string;
   exchange?: string;
   apiItem?: WatchlistItem;
-  draft?: ResearchThesisDraft;
-  source: "THESIS" | "OPPORTUNITIES" | "WATCHLIST_API";
+  hasThesis: boolean;
+  thesisId?: number | null;
+  year?: number;
+  source: "THESIS" | "OPPORTUNITIES" | "MANUAL";
   addedAt?: string;
   updatedAt?: string;
   nextReviewDate?: string;
@@ -65,7 +66,7 @@ export default function WatchlistPage() {
   const navigate = useNavigate();
 
   const [apiItems, setApiItems] = useState<WatchlistItem[]>([]);
-  const [drafts, setDrafts] = useState<ResearchThesisDraft[]>([]);
+  const [apiSummary, setApiSummary] = useState<WatchlistSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [updatingCode, setUpdatingCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -80,7 +81,7 @@ export default function WatchlistPage() {
     loadWatchlist();
   }, []);
 
-  const viewItems = useMemo(() => mergeWatchlistData(apiItems, drafts), [apiItems, drafts]);
+  const viewItems = useMemo(() => apiItems.map(toViewItem), [apiItems]);
 
   const filteredItems = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
@@ -103,6 +104,18 @@ export default function WatchlistPage() {
   }, [dueOnly, keyword, sortMode, statusFilter, viewItems]);
 
   const summary = useMemo(() => {
+    if (apiSummary) {
+      return {
+        total: apiSummary.total,
+        due: apiSummary.dueReview,
+        researching: apiSummary.researching,
+        waitingData: apiSummary.needMoreData,
+        watching: apiSummary.watchlist,
+        rejected: apiSummary.rejected,
+        noThesis: apiSummary.noThesis,
+      };
+    }
+
     const today = new Date().toISOString().slice(0, 10);
     return {
       total: viewItems.length,
@@ -111,23 +124,25 @@ export default function WatchlistPage() {
       waitingData: viewItems.filter((item) => item.thesisStatus === "WAITING_DATA").length,
       watching: viewItems.filter((item) => item.thesisStatus === "WATCHLIST").length,
       rejected: viewItems.filter((item) => item.thesisStatus === "REJECTED").length,
+      noThesis: viewItems.filter((item) => !item.hasThesis).length,
     };
-  }, [viewItems]);
+  }, [apiSummary, viewItems]);
 
   const loadWatchlist = async () => {
     try {
       setLoading(true);
       setErrorMessage("");
       setSuccessMessage("");
-      setDrafts(researchThesisDraftStorage.getAll());
 
       try {
         const data = await watchlistApi.getAll();
-        setApiItems(data ?? []);
+        setApiItems(data.items ?? []);
+        setApiSummary(data.summary ?? null);
       } catch (err) {
         console.error(err);
         setApiItems([]);
-        setErrorMessage("Không tải được danh sách theo dõi từ backend. Đang hiển thị tạm từ hồ sơ nghiên cứu đã lưu.");
+        setApiSummary(null);
+        setErrorMessage("Không tải được danh sách theo dõi từ backend.");
       }
     } finally {
       setLoading(false);
@@ -135,12 +150,13 @@ export default function WatchlistPage() {
   };
 
   const openThesis = (item: WatchlistViewItem) => {
-    if (item.draft) {
-      navigate(`/investment-thesis/new?draftId=${encodeURIComponent(item.draft.id)}`);
+    if (item.hasThesis && item.thesisId) {
+      navigate(`/investment-thesis/new?thesisId=${encodeURIComponent(item.thesisId)}`);
       return;
     }
 
-    navigate(`/investment-thesis/new?stockCode=${encodeURIComponent(item.stockCode)}`);
+    const yearQuery = item.year ? `&year=${encodeURIComponent(item.year)}` : "";
+    navigate(`/investment-thesis/new?stockCode=${encodeURIComponent(item.stockCode)}${yearQuery}`);
   };
 
   const handleRemove = async (item: WatchlistViewItem) => {
@@ -158,16 +174,6 @@ export default function WatchlistPage() {
       if (item.apiItem) {
         await watchlistApi.remove(item.apiItem.id);
         setApiItems((currentItems) => currentItems.filter((currentItem) => currentItem.id !== item.apiItem?.id));
-      }
-
-      if (item.draft?.thesisStatus === "WATCHLIST") {
-        const saved = researchThesisDraftStorage.save({
-          ...item.draft,
-          thesisStatus: "RESEARCHING",
-        });
-        setDrafts((currentDrafts) =>
-          currentDrafts.map((draft) => (draft.id === saved.id ? saved : draft))
-        );
       }
 
       setSuccessMessage(`Đã xóa ${item.stockCode} khỏi danh sách theo dõi. Hồ sơ nghiên cứu vẫn được giữ lại.`);
@@ -232,7 +238,7 @@ export default function WatchlistPage() {
         <MetricCard label="Đang nghiên cứu" value={summary.researching.toString()} />
         <MetricCard label="Cần thêm dữ liệu" value={summary.waitingData.toString()} />
         <MetricCard label="Theo dõi" value={summary.watching.toString()} />
-        <MetricCard label="Đã loại" value={summary.rejected.toString()} />
+        <MetricCard label="Chưa có hồ sơ" value={summary.noThesis.toString()} />
       </Box>
 
       <Card sx={{ mb: 3 }}>
@@ -366,20 +372,29 @@ function WatchlistCard({
               {item.companyName ? ` - ${item.companyName}` : ""}
             </Typography>
             <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap", rowGap: 1 }}>
-              <Chip size="small" label={translateThesisStatus(item.thesisStatus)} color={statusColor(item.thesisStatus)} />
-              <Chip size="small" label={`Review: ${item.nextReviewDate || "-"}`} variant="outlined" />
+              <Chip
+                size="small"
+                label={item.hasThesis ? translateThesisStatus(item.thesisStatus) : "Chưa có hồ sơ nghiên cứu"}
+                color={statusColor(item.thesisStatus)}
+              />
+              {item.hasThesis && (
+                <Chip size="small" label={`Review: ${item.nextReviewDate || "-"}`} variant="outlined" />
+              )}
               <Chip size="small" label={`Nguồn: ${sourceLabel(item.source)}`} variant="outlined" />
+              {item.hasThesis && <Chip size="small" label="Có hồ sơ nghiên cứu" variant="outlined" />}
               {item.updatedAt && <Chip size="small" label={`Cập nhật: ${formatShortDate(item.updatedAt)}`} variant="outlined" />}
             </Stack>
           </Box>
 
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" size="small" onClick={onOpen}>
-              Mở hồ sơ
+              {item.hasThesis ? "Mở hồ sơ" : "Tạo hồ sơ"}
             </Button>
-            <Button variant="contained" size="small" onClick={onOpen}>
-              Review ngay
-            </Button>
+            {item.hasThesis && (
+              <Button variant="contained" size="small" onClick={onOpen}>
+                Review ngay
+              </Button>
+            )}
             <Tooltip title={`Xóa ${item.stockCode} khỏi danh sách theo dõi`}>
               <span>
                 <IconButton size="small" color="error" onClick={onRemove} disabled={updating}>
@@ -390,21 +405,27 @@ function WatchlistCard({
           </Stack>
         </Stack>
 
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
-            gap: 2,
-          }}
-        >
-          <ListBlock title="Luận điểm tích cực" items={item.keyReasons} />
-          <ListBlock title="Rủi ro chính" items={item.keyRisks} />
-          <ListBlock title="Điều kiện cân nhắc mua" items={item.buyConditions} />
-          <ListBlock title="Điều kiện loại bỏ" items={item.rejectConditions} />
-          <ListBlock title="Dữ liệu/câu hỏi cần kiểm tra" items={item.missingData} />
-        </Box>
+        {item.hasThesis ? (
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+              gap: 2,
+            }}
+          >
+            <ListBlock title="Luận điểm tích cực" items={item.keyReasons} />
+            <ListBlock title="Rủi ro chính" items={item.keyRisks} />
+            <ListBlock title="Điều kiện cân nhắc mua" items={item.buyConditions} maxItems={2} />
+            <ListBlock title="Điều kiện loại bỏ" items={item.rejectConditions} maxItems={2} />
+            <ListBlock title="Dữ liệu/câu hỏi cần kiểm tra" items={item.missingData} maxItems={2} />
+          </Box>
+        ) : (
+          <Alert severity="info">
+            Mã này chưa có hồ sơ nghiên cứu. Hãy tạo hồ sơ để ghi luận điểm, rủi ro và điều kiện review.
+          </Alert>
+        )}
 
-        {item.note && (
+        {item.hasThesis && item.note && (
           <Alert severity="info" sx={{ mt: 2 }}>
             {item.note}
           </Alert>
@@ -414,7 +435,7 @@ function WatchlistCard({
   );
 }
 
-function ListBlock({ title, items }: { title: string; items: string[] }) {
+function ListBlock({ title, items, maxItems = 3 }: { title: string; items: string[]; maxItems?: number }) {
   return (
     <Box sx={{ minWidth: 0 }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
@@ -422,7 +443,7 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
       </Typography>
       {items.length > 0 ? (
         <Box component="ul" sx={{ pl: 2, my: 0 }}>
-          {items.slice(0, 3).map((item, index) => (
+          {items.slice(0, maxItems).map((item, index) => (
             <li key={`${title}-${index}`}>
               <Typography variant="body2" sx={{ lineHeight: 1.7, overflowWrap: "anywhere" }}>
                 {item}
@@ -452,46 +473,27 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function mergeWatchlistData(apiItems: WatchlistItem[], drafts: ResearchThesisDraft[]): WatchlistViewItem[] {
-  const byCode = new Map<string, WatchlistViewItem>();
-
-  apiItems.forEach((item) => {
-    const code = item.stockCode.trim().toUpperCase();
-    const draft = drafts.find((candidate) => candidate.stockCode.trim().toUpperCase() === code);
-    byCode.set(code, toViewItem(code, item, draft));
-  });
-
-  drafts
-    .filter((draft) => draft.thesisStatus === "WATCHLIST")
-    .forEach((draft) => {
-      const code = draft.stockCode.trim().toUpperCase();
-      if (!byCode.has(code)) {
-        byCode.set(code, toViewItem(code, undefined, draft));
-      }
-    });
-
-  return Array.from(byCode.values()).filter((item) => item.thesisStatus !== "REJECTED");
-}
-
-function toViewItem(stockCode: string, apiItem?: WatchlistItem, draft?: ResearchThesisDraft): WatchlistViewItem {
+function toViewItem(apiItem: WatchlistItem): WatchlistViewItem {
   return {
-    stockCode,
-    companyName: apiItem?.companyName,
-    industry: apiItem?.industry,
-    exchange: apiItem?.exchange,
+    stockCode: apiItem.stockCode,
+    companyName: apiItem.companyName,
+    industry: apiItem.industry,
+    exchange: apiItem.exchange,
     apiItem,
-    draft,
-    source: draft?.source === "OPPORTUNITIES" ? "OPPORTUNITIES" : draft ? "THESIS" : "WATCHLIST_API",
-    addedAt: apiItem?.addedAt ?? draft?.createdAt,
-    updatedAt: draft?.updatedAt ?? apiItem?.updatedAt,
-    nextReviewDate: draft?.nextReviewDate,
-    thesisStatus: draft?.thesisStatus ?? "NO_THESIS",
-    note: draft?.personalNote || apiItem?.reason,
-    keyReasons: draft?.bullCase ?? [],
-    keyRisks: draft?.keyRisks ?? [],
-    missingData: draft?.missingData ?? [],
-    buyConditions: draft?.buyConditions ?? [],
-    rejectConditions: draft?.rejectConditions ?? [],
+    hasThesis: Boolean(apiItem.hasThesis),
+    thesisId: apiItem.thesisId,
+    year: apiItem.year,
+    source: normalizeSource(apiItem.source),
+    addedAt: apiItem.addedAt,
+    updatedAt: apiItem.updatedAt,
+    nextReviewDate: apiItem.nextReviewDate ?? undefined,
+    thesisStatus: normalizeThesisStatus(apiItem.thesisStatus),
+    note: apiItem.reason,
+    keyReasons: apiItem.bullCaseSummary ?? [],
+    keyRisks: apiItem.keyRisksSummary ?? [],
+    missingData: apiItem.missingDataSummary ?? [],
+    buyConditions: apiItem.buyConditionsSummary ?? [],
+    rejectConditions: apiItem.rejectConditionsSummary ?? [],
   };
 }
 
@@ -530,7 +532,19 @@ function statusColor(value: WatchlistViewItem["thesisStatus"]) {
 function sourceLabel(value: WatchlistViewItem["source"]) {
   if (value === "OPPORTUNITIES") return "Cơ hội";
   if (value === "THESIS") return "Hồ sơ nghiên cứu";
-  return "Watchlist";
+  return "Thêm thủ công";
+}
+
+function normalizeSource(value?: string): WatchlistViewItem["source"] {
+  if (value === "THESIS" || value === "OPPORTUNITIES") return value;
+  return "MANUAL";
+}
+
+function normalizeThesisStatus(value?: string | null): WatchlistViewItem["thesisStatus"] {
+  if (value === "DRAFT" || value === "RESEARCHING" || value === "WATCHLIST" || value === "WAITING_DATA" || value === "REJECTED") {
+    return value;
+  }
+  return "NO_THESIS";
 }
 
 function formatShortDate(value?: string) {

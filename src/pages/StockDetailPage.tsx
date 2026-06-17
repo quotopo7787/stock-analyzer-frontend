@@ -8,7 +8,6 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Grid,
   Paper,
   Stack,
   TextField,
@@ -107,9 +106,7 @@ export default function StockDetailPage() {
     <Box>
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mb: 3 }}
+        sx={{ mb: 3, justifyContent: "space-between", alignItems: "center" }}
       >
         <Box>
           <Typography variant="h4" gutterBottom>
@@ -128,8 +125,15 @@ export default function StockDetailPage() {
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+              gap: 2,
+              alignItems: "start",
+            }}
+          >
+            <Box>
               <TextField
                 label="Mã cổ phiếu"
                 fullWidth
@@ -137,9 +141,9 @@ export default function StockDetailPage() {
                 onChange={(e) => setStockCode(e.target.value.toUpperCase())}
                 helperText="Ví dụ: FPT, HPG, MWG"
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={4}>
+            <Box>
               <TextField
                 label="Năm phân tích"
                 type="number"
@@ -148,9 +152,9 @@ export default function StockDetailPage() {
                 onChange={(e) => setYear(Number(e.target.value))}
                 helperText="Ví dụ: 2025"
               />
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={4}>
+            <Box>
               <Button
                 variant="contained"
                 fullWidth
@@ -160,8 +164,8 @@ export default function StockDetailPage() {
               >
                 {loading ? "Đang tải..." : "Tải snapshot"}
               </Button>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
@@ -216,27 +220,34 @@ function CompanyOverviewCard({
 
         <Divider sx={{ mb: 2 }} />
 
-        <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} md={3}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" },
+            gap: 2,
+            alignItems: "stretch",
+          }}
+        >
+          <Box>
             <InfoItem label="Mã cổ phiếu" value={snapshot.stockCode} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={3}>
+          <Box>
             <InfoItem label="Tên doanh nghiệp" value={snapshot.companyName} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={3}>
+          <Box>
             <InfoItem label="Sàn giao dịch" value={snapshot.exchange} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={3}>
+          <Box>
             <InfoItem label="Ngành" value={snapshot.industry} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={3}>
+          <Box>
             <InfoItem label="Năm phân tích" value={String(snapshot.year)} />
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -313,9 +324,7 @@ function AnalysisCard({
       <CardContent>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, justifyContent: "space-between", alignItems: "center" }}
         >
           <Typography variant="h6">
             Phân tích chỉ số
@@ -426,9 +435,7 @@ function QualityScoreCard({
       <CardContent>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, justifyContent: "space-between", alignItems: "center" }}
         >
           <Box>
             <Typography variant="h6">
@@ -625,27 +632,34 @@ function InvestmentThesisCard({
           {thesis.summary}
         </Typography>
 
-        <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} md={6}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+            gap: 2,
+            alignItems: "stretch",
+          }}
+        >
+          <Box>
             <ListBlock title="Luận điểm tích cực" items={thesis.bullCase} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={6}>
+          <Box>
             <ListBlock title="Luận điểm tiêu cực" items={thesis.bearCase} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={6}>
+          <Box>
             <ListBlock title="Động lực chính" items={thesis.keyDrivers} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={6}>
+          <Box>
             <ListBlock title="Cờ đỏ rủi ro" items={thesis.redFlags} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12}>
+          <Box sx={{ gridColumn: { xs: "auto", md: "1 / -1" } }}>
             <ListBlock title="Câu hỏi cần nghiên cứu thêm" items={thesis.researchQuestions} />
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         {thesis.disclaimer && (
           <Alert severity="info" sx={{ mt: 2 }}>

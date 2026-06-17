@@ -98,10 +98,8 @@ export default function StockListPage() {
     <Box>
       <Stack
         direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", md: "center" }}
         spacing={2}
-        sx={{ mb: 3 }}
+        sx={{ mb: 3, justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
       >
         <Box>
           <Typography variant="h4" gutterBottom>
@@ -190,10 +188,8 @@ export default function StockListPage() {
         <CardContent>
           <Stack
             direction={{ xs: "column", md: "row" }}
-            justifyContent="space-between"
-            alignItems={{ xs: "flex-start", md: "center" }}
             spacing={1}
-            sx={{ mb: 2 }}
+            sx={{ mb: 2, justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
           >
             <Typography variant="h6">
               Kết quả

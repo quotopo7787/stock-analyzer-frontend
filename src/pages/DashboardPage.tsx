@@ -166,9 +166,7 @@ export default function DashboardPage() {
     <Box>
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mb: 3 }}
+        sx={{ mb: 3, justifyContent: "space-between", alignItems: "center" }}
       >
         <Box>
           <Typography variant="h4" gutterBottom>
