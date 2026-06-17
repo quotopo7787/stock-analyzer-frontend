@@ -86,6 +86,11 @@ export interface OpportunityMeta {
   sort: string;
   activeFilters: Record<string, unknown>;
   generatedAt: string;
+  source?: "SNAPSHOT" | "REALTIME_FALLBACK" | string | null;
+  snapshotGeneratedAt?: string | null;
+  snapshotCount?: number | null;
+  latestJobStatus?: string | null;
+  warning?: string | null;
 }
 
 export interface OpportunityPagination {

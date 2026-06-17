@@ -36,7 +36,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { opportunitiesApi } from "../api/opportunitiesApi";
 import {
   createResearchThesisDraftId,
@@ -326,6 +326,8 @@ export default function OpportunitiesPage() {
         Đây là công cụ sàng lọc, không phải khuyến nghị mua/bán. Điểm cao chỉ giúp nhận diện mã đáng nghiên cứu tiếp.
       </Alert>
 
+      {meta && <SnapshotStatusBar meta={meta} />}
+
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Stack spacing={2}>
@@ -604,6 +606,64 @@ export default function OpportunitiesPage() {
         onClose={closeDetail}
       />
     </Box>
+  );
+}
+
+function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] }) {
+  const isFallback = meta.source === "REALTIME_FALLBACK";
+  const latestJobStatus = meta.latestJobStatus;
+
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        mb: 3,
+        p: 1.5,
+        borderColor: isFallback ? "warning.main" : "divider",
+        bgcolor: "background.paper",
+      }}
+    >
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={1}
+        sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
+      >
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
+          <Chip
+            size="small"
+            label={snapshotSourceLabel(meta.source)}
+            color={isFallback ? "warning" : "success"}
+            variant={isFallback ? "filled" : "outlined"}
+          />
+          <Typography variant="body2" color="text.secondary">
+            Cập nhật: {formatDateTime(meta.snapshotGeneratedAt)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {formatNumber(meta.snapshotCount ?? meta.totalBeforeFilters, 0)} mã
+          </Typography>
+          {latestJobStatus && (
+            <Tooltip title={jobStatusTooltip(latestJobStatus)}>
+              <Chip
+                size="small"
+                label={`Job: ${jobStatusLabel(latestJobStatus)}`}
+                color={jobStatusColor(latestJobStatus)}
+                variant="outlined"
+              />
+            </Tooltip>
+          )}
+        </Stack>
+
+        <Button component={Link} to="/admin/data-status" size="small" variant="text">
+          Xem trạng thái dữ liệu
+        </Button>
+      </Stack>
+
+      {(isFallback || meta.warning) && (
+        <Alert severity="warning" sx={{ mt: 1 }}>
+          {meta.warning ?? "Chưa có snapshot phù hợp, hệ thống đang tính realtime nên có thể chậm."}
+        </Alert>
+      )}
+    </Paper>
   );
 }
 
@@ -1206,6 +1266,19 @@ function formatPercent(value?: number | null) {
   return `${formatNumber(value)}%`;
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return "Chưa có thông tin cập nhật";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function count(counts: Record<string, number> | undefined, key: string) {
   return counts?.[key] ?? 0;
 }
@@ -1221,6 +1294,47 @@ function listSubtitle(meta: OpportunityWrappedResponse["meta"]) {
 
 function sortLabel(value?: string | null) {
   return sortOptions.find((option) => option.value === value)?.label ?? value ?? "-";
+}
+
+function snapshotSourceLabel(source?: string | null) {
+  if (source === "SNAPSHOT") return "Snapshot";
+  if (source === "REALTIME_FALLBACK") return "Realtime fallback";
+  return source ?? "Chưa rõ nguồn";
+}
+
+function jobStatusLabel(status?: string | null) {
+  const labels: Record<string, string> = {
+    SUCCESS: "Thành công",
+    FAILED: "Batch lỗi",
+    SKIPPED: "Không cần refresh",
+    RUNNING: "Đang chạy",
+  };
+  return status ? labels[status] ?? status : "-";
+}
+
+function jobStatusColor(status?: string | null): BadgeColor {
+  switch (status) {
+    case "SUCCESS":
+      return "success";
+    case "FAILED":
+      return "error";
+    case "SKIPPED":
+      return "default";
+    case "RUNNING":
+      return "info";
+    default:
+      return "default";
+  }
+}
+
+function jobStatusTooltip(status?: string | null) {
+  const tooltips: Record<string, string> = {
+    SUCCESS: "Job refresh gần nhất hoàn tất thành công.",
+    FAILED: "Job refresh gần nhất thất bại. Kiểm tra trang trạng thái dữ liệu.",
+    SKIPPED: "Job gần nhất được bỏ qua vì snapshot còn mới hoặc đang có job khác chạy.",
+    RUNNING: "Job refresh đang chạy.",
+  };
+  return status ? tooltips[status] ?? status : "";
 }
 
 function topEntries(counts: Record<string, number> | undefined, limit: number): Array<[string, number]> {

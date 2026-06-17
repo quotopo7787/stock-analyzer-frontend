@@ -10,6 +10,7 @@ import InvestmentThesisPage from "./pages/InvestmentThesisPage";
 import ResearchThesisFormPage from "./pages/ResearchThesisFormPage";
 import WatchlistPage from "./pages/WatchlistPage";
 import DataQualityPage from "./pages/DataQualityPage";
+import DataStatusPage from "./pages/DataStatusPage";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="investment-thesis/new" element={<ResearchThesisFormPage />} />
           <Route path="investment-thesis" element={<InvestmentThesisPage />} />
           <Route path="data-quality" element={<DataQualityPage />} />
+          <Route path="admin/data-status" element={<DataStatusPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

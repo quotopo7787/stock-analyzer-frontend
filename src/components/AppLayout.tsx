@@ -9,6 +9,7 @@ const navItems = [
   { label: "Cơ hội", to: "/opportunities" },
   { label: "Lịch sử hồ sơ", to: "/investment-thesis" },
   { label: "Dữ liệu", to: "/data-quality" },
+  { label: "Trạng thái DL", to: "/admin/data-status" },
   { label: "Watchlist", to: "/watchlist" },
 ];
 
