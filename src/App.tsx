@@ -5,7 +5,9 @@ import StockListPage from "./pages/StockListPage";
 import StockDetailPage from "./pages/StockDetailPage";
 import FinancialStatementFormPage from "./pages/FinancialStatementFormPage";
 import RankingPage from "./pages/RankingPage";
+import OpportunitiesPage from "./pages/OpportunitiesPage";
 import InvestmentThesisPage from "./pages/InvestmentThesisPage";
+import ResearchThesisFormPage from "./pages/ResearchThesisFormPage";
 import WatchlistPage from "./pages/WatchlistPage";
 import DataQualityPage from "./pages/DataQualityPage";
 
@@ -20,7 +22,9 @@ function App() {
           <Route path="stocks/:code" element={<StockDetailPage />} />
           <Route path="financial-statements/new" element={<FinancialStatementFormPage />} />
           <Route path="rankings" element={<RankingPage />} />
+          <Route path="opportunities" element={<OpportunitiesPage />} />
           <Route path="watchlist" element={<WatchlistPage />} />
+          <Route path="investment-thesis/new" element={<ResearchThesisFormPage />} />
           <Route path="investment-thesis" element={<InvestmentThesisPage />} />
           <Route path="data-quality" element={<DataQualityPage />} />
         </Route>

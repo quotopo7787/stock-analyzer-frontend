@@ -1,7 +1,20 @@
 import { AppBar, Box, Button, Container, Toolbar, Typography } from "@mui/material";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
+
+const navItems = [
+  { label: "Tổng quan", to: "/" },
+  { label: "Cổ phiếu", to: "/stocks" },
+  { label: "Nhập BCTC", to: "/financial-statements/new" },
+  { label: "Xếp hạng", to: "/rankings" },
+  { label: "Cơ hội", to: "/opportunities" },
+  { label: "Lịch sử hồ sơ", to: "/investment-thesis" },
+  { label: "Dữ liệu", to: "/data-quality" },
+  { label: "Watchlist", to: "/watchlist" },
+];
 
 export default function AppLayout() {
+  const location = useLocation();
+
   return (
     <Box>
       <AppBar position="static">
@@ -10,29 +23,26 @@ export default function AppLayout() {
             Stock Analyzer
           </Typography>
 
-          <Button color="inherit" component={Link} to="/">
-            Tổng quan
-          </Button>
+          {navItems.map((item) => {
+            const active = item.to === "/" ? location.pathname === item.to : location.pathname.startsWith(item.to);
 
-          <Button color="inherit" component={Link} to="/stocks">
-            Cổ phiếu
-          </Button>
-
-          <Button color="inherit" component={Link} to="/financial-statements/new">
-            Nhập BCTC
-          </Button>
-
-          <Button color="inherit" component={Link} to="/rankings">
-            Xếp hạng
-          </Button>
-
-          <Button color="inherit" component={Link} to="/data-quality">
-            Dữ liệu
-          </Button>
-
-          <Button color="inherit" component={Link} to="/watchlist">
-            Watchlist
-          </Button>
+            return (
+              <Button
+                key={item.to}
+                color="inherit"
+                component={Link}
+                to={item.to}
+                sx={{
+                  mx: 0.25,
+                  bgcolor: active ? "rgba(255,255,255,0.18)" : "transparent",
+                  border: "1px solid",
+                  borderColor: active ? "rgba(255,255,255,0.34)" : "transparent",
+                }}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
         </Toolbar>
       </AppBar>
 

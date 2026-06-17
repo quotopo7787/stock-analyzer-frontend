@@ -11,264 +11,172 @@ import {
   LinearProgress,
   MenuItem,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate } from "react-router-dom";
+import { researchThesisDraftStorage } from "../api/researchThesisDraftStorage";
 import { watchlistApi } from "../api/watchlistApi";
-import type {
-  CreateWatchlistItemRequest,
-  WatchlistItem,
-  WatchlistStatus,
-} from "../types/watchlist";
+import type { ResearchThesisDraft, ResearchThesisStatus } from "../types/researchThesis";
+import type { WatchlistItem } from "../types/watchlist";
 
-const statusOptions: Array<{ value: WatchlistStatus | "ALL"; label: string }> = [
+type SortMode = "UPDATED_DESC" | "REVIEW_ASC" | "CODE_ASC";
+
+interface WatchlistViewItem {
+  stockCode: string;
+  companyName?: string;
+  industry?: string;
+  exchange?: string;
+  apiItem?: WatchlistItem;
+  draft?: ResearchThesisDraft;
+  source: "THESIS" | "OPPORTUNITIES" | "WATCHLIST_API";
+  addedAt?: string;
+  updatedAt?: string;
+  nextReviewDate?: string;
+  thesisStatus: ResearchThesisStatus | "NO_THESIS";
+  note?: string;
+  keyReasons: string[];
+  keyRisks: string[];
+  missingData: string[];
+  buyConditions: string[];
+  rejectConditions: string[];
+}
+
+const thesisStatusOptions: Array<{ value: ResearchThesisStatus | "ALL" | "NO_THESIS"; label: string }> = [
   { value: "ALL", label: "Tất cả trạng thái" },
-  { value: "WATCHING", label: "Đang theo dõi" },
-  { value: "READY_TO_BUY", label: "Sẵn sàng mua" },
-  { value: "HOLDING", label: "Đang nắm giữ" },
-  { value: "SOLD", label: "Đã bán" },
-  { value: "REJECTED", label: "Đã loại" },
+  { value: "RESEARCHING", label: "Đang nghiên cứu" },
+  { value: "WATCHLIST", label: "Theo dõi" },
+  { value: "WAITING_DATA", label: "Cần thêm dữ liệu" },
+  { value: "REJECTED", label: "Đã loại bỏ" },
+  { value: "DRAFT", label: "Bản nháp" },
+  { value: "NO_THESIS", label: "Chưa có hồ sơ" },
 ];
 
-const editableStatusOptions = statusOptions.filter(
-  (option): option is { value: WatchlistStatus; label: string } =>
-    option.value !== "ALL"
-);
+const sortOptions: Array<{ value: SortMode; label: string }> = [
+  { value: "UPDATED_DESC", label: "Cập nhật mới nhất" },
+  { value: "REVIEW_ASC", label: "Ngày review gần nhất" },
+  { value: "CODE_ASC", label: "Mã A-Z" },
+];
 
 export default function WatchlistPage() {
   const navigate = useNavigate();
 
-  const [items, setItems] = useState<WatchlistItem[]>([]);
+  const [apiItems, setApiItems] = useState<WatchlistItem[]>([]);
+  const [drafts, setDrafts] = useState<ResearchThesisDraft[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [updatingCode, setUpdatingCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [stockCode, setStockCode] = useState("");
-  const [targetBuyPrice, setTargetBuyPrice] = useState("");
-  const [targetSellPrice, setTargetSellPrice] = useState("");
-  const [reason, setReason] = useState("");
-
   const [keyword, setKeyword] = useState("");
-  const [statusFilter, setStatusFilter] = useState<WatchlistStatus | "ALL">(
-    "ALL"
-  );
+  const [statusFilter, setStatusFilter] = useState<ResearchThesisStatus | "ALL" | "NO_THESIS">("ALL");
+  const [sortMode, setSortMode] = useState<SortMode>("REVIEW_ASC");
+  const [dueOnly, setDueOnly] = useState(false);
 
   useEffect(() => {
     loadWatchlist();
   }, []);
 
+  const viewItems = useMemo(() => mergeWatchlistData(apiItems, drafts), [apiItems, drafts]);
+
   const filteredItems = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
+    const today = new Date().toISOString().slice(0, 10);
 
-    return items.filter((item) => {
-      const matchesKeyword =
-        !normalizedKeyword ||
-        item.stockCode?.toLowerCase().includes(normalizedKeyword) ||
-        item.companyName?.toLowerCase().includes(normalizedKeyword) ||
-        item.industry?.toLowerCase().includes(normalizedKeyword);
+    return viewItems
+      .filter((item) => {
+        const matchesKeyword =
+          !normalizedKeyword ||
+          item.stockCode.toLowerCase().includes(normalizedKeyword) ||
+          item.companyName?.toLowerCase().includes(normalizedKeyword) ||
+          item.industry?.toLowerCase().includes(normalizedKeyword);
 
-      const matchesStatus =
-        statusFilter === "ALL" || item.status === statusFilter;
+        const matchesStatus = statusFilter === "ALL" || item.thesisStatus === statusFilter;
+        const matchesDue = !dueOnly || Boolean(item.nextReviewDate && item.nextReviewDate <= today);
 
-      return matchesKeyword && matchesStatus;
-    });
-  }, [items, keyword, statusFilter]);
+        return matchesKeyword && matchesStatus && matchesDue;
+      })
+      .sort((a, b) => sortWatchlistItems(a, b, sortMode));
+  }, [dueOnly, keyword, sortMode, statusFilter, viewItems]);
 
-  const statusCounts = useMemo(() => {
-    return editableStatusOptions.reduce<Record<WatchlistStatus, number>>(
-      (counts, option) => {
-        counts[option.value] = items.filter(
-          (item) => item.status === option.value
-        ).length;
-        return counts;
-      },
-      {
-        WATCHING: 0,
-        READY_TO_BUY: 0,
-        HOLDING: 0,
-        SOLD: 0,
-        REJECTED: 0,
-      }
-    );
-  }, [items]);
+  const summary = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      total: viewItems.length,
+      due: viewItems.filter((item) => item.nextReviewDate && item.nextReviewDate <= today).length,
+      researching: viewItems.filter((item) => item.thesisStatus === "RESEARCHING").length,
+      waitingData: viewItems.filter((item) => item.thesisStatus === "WAITING_DATA").length,
+      watching: viewItems.filter((item) => item.thesisStatus === "WATCHLIST").length,
+      rejected: viewItems.filter((item) => item.thesisStatus === "REJECTED").length,
+    };
+  }, [viewItems]);
 
   const loadWatchlist = async () => {
     try {
       setLoading(true);
       setErrorMessage("");
+      setSuccessMessage("");
+      setDrafts(researchThesisDraftStorage.getAll());
 
-      const data = await watchlistApi.getAll();
-      setItems(data ?? []);
-    } catch (err) {
-      console.error(err);
-      setErrorMessage(
-        "Không tải được watchlist. Kiểm tra backend, CORS hoặc endpoint /api/watchlist."
-      );
+      try {
+        const data = await watchlistApi.getAll();
+        setApiItems(data ?? []);
+      } catch (err) {
+        console.error(err);
+        setApiItems([]);
+        setErrorMessage("Không tải được danh sách theo dõi từ backend. Đang hiển thị tạm từ hồ sơ nghiên cứu đã lưu.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const parseOptionalNumber = (value: string) => {
-    if (!value.trim()) return undefined;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  };
-
-  const resetForm = () => {
-    setStockCode("");
-    setTargetBuyPrice("");
-    setTargetSellPrice("");
-    setReason("");
-  };
-
-  const handleCreate = async () => {
-    const normalizedStockCode = stockCode.trim().toUpperCase();
-
-    if (!normalizedStockCode) {
-      setErrorMessage("Vui lòng nhập mã cổ phiếu.");
+  const openThesis = (item: WatchlistViewItem) => {
+    if (item.draft) {
+      navigate(`/investment-thesis/new?draftId=${encodeURIComponent(item.draft.id)}`);
       return;
     }
 
-    const payload: CreateWatchlistItemRequest = {
-      stockCode: normalizedStockCode,
-      targetBuyPrice: parseOptionalNumber(targetBuyPrice),
-      targetSellPrice: parseOptionalNumber(targetSellPrice),
-      reason: reason.trim() || undefined,
-    };
-
-    try {
-      setSaving(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      const created = await watchlistApi.create(payload);
-
-      setItems((currentItems) => [
-        created,
-        ...currentItems.filter((item) => item.id !== created.id),
-      ]);
-      resetForm();
-      setSuccessMessage(`Đã thêm ${created.stockCode} vào watchlist.`);
-    } catch (err) {
-      console.error(err);
-      setErrorMessage(
-        "Không thêm được mã vào watchlist. Kiểm tra mã cổ phiếu hoặc dữ liệu đã tồn tại."
-      );
-    } finally {
-      setSaving(false);
-    }
+    navigate(`/investment-thesis/new?stockCode=${encodeURIComponent(item.stockCode)}`);
   };
 
-  const handleUpdateStatus = async (
-    item: WatchlistItem,
-    nextStatus: WatchlistStatus
-  ) => {
-    if (item.status === nextStatus) return;
-
-    try {
-      setUpdatingId(item.id);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      const updated = await watchlistApi.updateStatus(item.id, {
-        status: nextStatus,
-      });
-
-      setItems((currentItems) =>
-        currentItems.map((currentItem) =>
-          currentItem.id === updated.id ? updated : currentItem
-        )
-      );
-      setSuccessMessage(
-        `Đã cập nhật trạng thái ${updated.stockCode} thành ${translateStatus(
-          updated.status
-        )}.`
-      );
-    } catch (err) {
-      console.error(err);
-      setErrorMessage("Không cập nhật được trạng thái watchlist.");
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  const handleRemove = async (item: WatchlistItem) => {
+  const handleRemove = async (item: WatchlistViewItem) => {
     const confirmed = window.confirm(
-      `Xóa ${item.stockCode} khỏi watchlist?`
+      `Bạn muốn xóa ${item.stockCode} khỏi danh sách theo dõi? Hồ sơ nghiên cứu vẫn được giữ lại.`
     );
 
     if (!confirmed) return;
 
     try {
-      setUpdatingId(item.id);
+      setUpdatingCode(item.stockCode);
       setErrorMessage("");
       setSuccessMessage("");
 
-      await watchlistApi.remove(item.id);
+      if (item.apiItem) {
+        await watchlistApi.remove(item.apiItem.id);
+        setApiItems((currentItems) => currentItems.filter((currentItem) => currentItem.id !== item.apiItem?.id));
+      }
 
-      setItems((currentItems) =>
-        currentItems.filter((currentItem) => currentItem.id !== item.id)
-      );
-      setSuccessMessage(`Đã xóa ${item.stockCode} khỏi watchlist.`);
+      if (item.draft?.thesisStatus === "WATCHLIST") {
+        const saved = researchThesisDraftStorage.save({
+          ...item.draft,
+          thesisStatus: "RESEARCHING",
+        });
+        setDrafts((currentDrafts) =>
+          currentDrafts.map((draft) => (draft.id === saved.id ? saved : draft))
+        );
+      }
+
+      setSuccessMessage(`Đã xóa ${item.stockCode} khỏi danh sách theo dõi. Hồ sơ nghiên cứu vẫn được giữ lại.`);
     } catch (err) {
       console.error(err);
-      setErrorMessage("Không xóa được mã khỏi watchlist.");
+      setErrorMessage("Không xóa được mã khỏi danh sách theo dõi.");
     } finally {
-      setUpdatingId(null);
+      setUpdatingCode("");
     }
-  };
-
-  const formatNumber = (value?: number | null) => {
-    if (value === undefined || value === null || Number.isNaN(value)) return "-";
-
-    return value.toLocaleString("vi-VN", {
-      maximumFractionDigits: 0,
-    });
-  };
-
-  const formatDateTime = (value?: string) => {
-    if (!value) return "-";
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) return value;
-
-    return date.toLocaleString("vi-VN", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  };
-
-  const translateStatus = (value?: WatchlistStatus) => {
-    if (value === "WATCHING") return "Đang theo dõi";
-    if (value === "READY_TO_BUY") return "Sẵn sàng mua";
-    if (value === "HOLDING") return "Đang nắm giữ";
-    if (value === "SOLD") return "Đã bán";
-    if (value === "REJECTED") return "Đã loại";
-    return "-";
-  };
-
-  const getStatusColor = (value?: WatchlistStatus) => {
-    if (value === "READY_TO_BUY") return "success";
-    if (value === "HOLDING") return "primary";
-    if (value === "WATCHING") return "warning";
-    if (value === "SOLD") return "default";
-    if (value === "REJECTED") return "error";
-    return "default";
   };
 
   return (
@@ -284,113 +192,66 @@ export default function WatchlistPage() {
       >
         <Box>
           <Typography variant="h4" gutterBottom>
-            Watchlist
+            Danh sách theo dõi
           </Typography>
 
-          <Typography color="text.secondary">
-            Quản lý danh sách cổ phiếu đang theo dõi, giá mua/bán mục tiêu và
-            trạng thái nghiên cứu.
+          <Typography color="text.secondary" sx={{ maxWidth: 880 }}>
+            Các mã đã có hồ sơ nghiên cứu và cần được review lại theo điều kiện đã đặt.
           </Typography>
         </Box>
 
-        <Button
-          variant="outlined"
-          startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
-          onClick={loadWatchlist}
-          disabled={loading}
-        >
-          Tải lại
-        </Button>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+          <Button variant="outlined" onClick={() => navigate("/investment-thesis")}>
+            Quay lại Hồ sơ nghiên cứu
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            onClick={loadWatchlist}
+            disabled={loading}
+          >
+            Tải lại
+          </Button>
+        </Stack>
       </Stack>
+
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Danh sách này không phải khuyến nghị mua. Mỗi mã cần được đối chiếu với hồ sơ nghiên cứu trước khi hành động.
+      </Alert>
 
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
           gap: 2,
           mb: 3,
         }}
       >
-        <MetricCard label="Tổng số mã" value={items.length.toString()} />
-        <MetricCard
-          label="Sẵn sàng mua"
-          value={statusCounts.READY_TO_BUY.toString()}
-        />
-        <MetricCard
-          label="Đang nắm giữ"
-          value={statusCounts.HOLDING.toString()}
-        />
-        <MetricCard
-          label="Đang theo dõi"
-          value={statusCounts.WATCHING.toString()}
-        />
+        <MetricCard label="Tổng mã theo dõi" value={summary.total.toString()} />
+        <MetricCard label="Đến hạn review" value={summary.due.toString()} />
+        <MetricCard label="Đang nghiên cứu" value={summary.researching.toString()} />
+        <MetricCard label="Cần thêm dữ liệu" value={summary.waitingData.toString()} />
+        <MetricCard label="Theo dõi" value={summary.watching.toString()} />
+        <MetricCard label="Đã loại" value={summary.rejected.toString()} />
       </Box>
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Thêm vào watchlist
+            Bộ lọc
           </Typography>
 
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={2}
-            sx={{ alignItems: { xs: "stretch", md: "flex-start" } }}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1.4fr 1fr 1fr auto" },
+              gap: 2,
+              alignItems: "center",
+            }}
           >
             <TextField
               label="Mã cổ phiếu"
-              placeholder="VD: FPT"
-              value={stockCode}
-              onChange={(event) => setStockCode(event.target.value)}
-              sx={{ minWidth: { md: 150 } }}
-            />
-
-            <TextField
-              label="Giá mua mục tiêu"
-              type="number"
-              value={targetBuyPrice}
-              onChange={(event) => setTargetBuyPrice(event.target.value)}
-              sx={{ minWidth: { md: 170 } }}
-            />
-
-            <TextField
-              label="Giá bán mục tiêu"
-              type="number"
-              value={targetSellPrice}
-              onChange={(event) => setTargetSellPrice(event.target.value)}
-              sx={{ minWidth: { md: 170 } }}
-            />
-
-            <TextField
-              label="Lý do theo dõi"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              fullWidth
-            />
-
-            <Button
-              variant="contained"
-              startIcon={saving ? <CircularProgress size={16} /> : <AddIcon />}
-              onClick={handleCreate}
-              disabled={saving}
-              sx={{ minWidth: 130, height: 56 }}
-            >
-              Thêm
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
-
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={2}
-            sx={{ alignItems: { xs: "stretch", md: "flex-start" } }}
-          >
-            <TextField
-              label="Tìm kiếm"
-              placeholder="Mã, tên công ty hoặc ngành"
+              placeholder="Tìm mã, tên công ty hoặc ngành"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               fullWidth
@@ -398,25 +259,52 @@ export default function WatchlistPage() {
 
             <TextField
               select
-              label="Trạng thái"
+              label="Trạng thái hồ sơ"
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as WatchlistStatus | "ALL")
-              }
-              sx={{ minWidth: { md: 220 } }}
+              onChange={(event) => setStatusFilter(event.target.value as ResearchThesisStatus | "ALL" | "NO_THESIS")}
             >
-              {statusOptions.map((option) => (
+              {thesisStatusOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>
               ))}
             </TextField>
-          </Stack>
+
+            <TextField
+              select
+              label="Sắp xếp"
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as SortMode)}
+            >
+              {sortOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Button
+              variant={dueOnly ? "contained" : "outlined"}
+              onClick={() => setDueOnly((value) => !value)}
+              sx={{ height: 56 }}
+            >
+              Đến hạn review
+            </Button>
+          </Box>
         </CardContent>
       </Card>
 
+      {loading && (
+        <Card sx={{ mb: 3 }}>
+          <LinearProgress />
+          <CardContent>
+            <Typography>Đang tải danh sách theo dõi...</Typography>
+          </CardContent>
+        </Card>
+      )}
+
       {errorMessage && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="warning" sx={{ mb: 3 }}>
           {errorMessage}
         </Alert>
       )}
@@ -427,151 +315,126 @@ export default function WatchlistPage() {
         </Alert>
       )}
 
-      <Card>
-        {loading && <LinearProgress />}
+      <Stack spacing={2}>
+        {filteredItems.map((item) => (
+          <WatchlistCard
+            key={item.stockCode}
+            item={item}
+            updating={updatingCode === item.stockCode}
+            onOpen={() => openThesis(item)}
+            onRemove={() => handleRemove(item)}
+          />
+        ))}
 
-        <CardContent>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={1}
-            sx={{
-              mb: 2,
-              justifyContent: "space-between",
-              alignItems: { xs: "flex-start", md: "center" },
-            }}
-          >
-            <Box>
-              <Typography variant="h6">Danh sách theo dõi</Typography>
-              <Typography variant="body2" color="text.secondary">
-                API: GET /api/watchlist
+        {filteredItems.length === 0 && !loading && (
+          <Card>
+            <CardContent sx={{ py: 5, textAlign: "center" }}>
+              <Typography variant="h6">Chưa có mã nào trong danh sách theo dõi</Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }}>
+                Hãy tạo hồ sơ nghiên cứu rồi bấm "Đưa vào danh sách theo dõi".
               </Typography>
-            </Box>
+            </CardContent>
+          </Card>
+        )}
+      </Stack>
+    </Box>
+  );
+}
 
-            <Typography color="text.secondary">
-              Hiển thị {filteredItems.length} / {items.length} mã
+function WatchlistCard({
+  item,
+  updating,
+  onOpen,
+  onRemove,
+}: {
+  item: WatchlistViewItem;
+  updating: boolean;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" }, mb: 2 }}
+        >
+          <Box>
+            <Typography variant="h6">
+              {item.stockCode}
+              {item.companyName ? ` - ${item.companyName}` : ""}
             </Typography>
+            <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap", rowGap: 1 }}>
+              <Chip size="small" label={translateThesisStatus(item.thesisStatus)} color={statusColor(item.thesisStatus)} />
+              <Chip size="small" label={`Review: ${item.nextReviewDate || "-"}`} variant="outlined" />
+              <Chip size="small" label={`Nguồn: ${sourceLabel(item.source)}`} variant="outlined" />
+              {item.updatedAt && <Chip size="small" label={`Cập nhật: ${formatShortDate(item.updatedAt)}`} variant="outlined" />}
+            </Stack>
+          </Box>
+
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" size="small" onClick={onOpen}>
+              Mở hồ sơ
+            </Button>
+            <Button variant="contained" size="small" onClick={onOpen}>
+              Review ngay
+            </Button>
+            <Tooltip title={`Xóa ${item.stockCode} khỏi danh sách theo dõi`}>
+              <span>
+                <IconButton size="small" color="error" onClick={onRemove} disabled={updating}>
+                  {updating ? <CircularProgress size={18} /> : <DeleteIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
           </Stack>
+        </Stack>
 
-          <TableContainer sx={{ overflowX: "auto" }}>
-            <Table size="small" sx={{ minWidth: 1080 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Mã</TableCell>
-                  <TableCell>Công ty</TableCell>
-                  <TableCell>Sàn</TableCell>
-                  <TableCell>Ngành</TableCell>
-                  <TableCell align="right">Giá mua</TableCell>
-                  <TableCell align="right">Giá bán</TableCell>
-                  <TableCell>Trạng thái</TableCell>
-                  <TableCell>Lý do</TableCell>
-                  <TableCell>Cập nhật</TableCell>
-                  <TableCell align="center">Hành động</TableCell>
-                </TableRow>
-              </TableHead>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+            gap: 2,
+          }}
+        >
+          <ListBlock title="Luận điểm tích cực" items={item.keyReasons} />
+          <ListBlock title="Rủi ro chính" items={item.keyRisks} />
+          <ListBlock title="Điều kiện cân nhắc mua" items={item.buyConditions} />
+          <ListBlock title="Điều kiện loại bỏ" items={item.rejectConditions} />
+          <ListBlock title="Dữ liệu/câu hỏi cần kiểm tra" items={item.missingData} />
+        </Box>
 
-              <TableBody>
-                {filteredItems.map((item) => (
-                  <TableRow key={item.id} hover>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 700 }}>
-                        {item.stockCode}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ minWidth: 180 }}>
-                      {item.companyName || "-"}
-                    </TableCell>
-                    <TableCell>{item.exchange || "-"}</TableCell>
-                    <TableCell sx={{ minWidth: 160 }}>
-                      {item.industry || "-"}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatNumber(item.targetBuyPrice)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatNumber(item.targetSellPrice)}
-                    </TableCell>
-                    <TableCell sx={{ minWidth: 190 }}>
-                      <TextField
-                        select
-                        size="small"
-                        value={item.status}
-                        onChange={(event) =>
-                          handleUpdateStatus(
-                            item,
-                            event.target.value as WatchlistStatus
-                          )
-                        }
-                        disabled={updatingId === item.id}
-                        fullWidth
-                      >
-                        {editableStatusOptions.map((option) => (
-                          <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </TableCell>
-                    <TableCell sx={{ minWidth: 220 }}>
-                      {item.reason || "-"}
-                    </TableCell>
-                    <TableCell>{formatDateTime(item.updatedAt)}</TableCell>
-                    <TableCell align="center">
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        sx={{ justifyContent: "center" }}
-                      >
-                        <Chip
-                          size="small"
-                          label={translateStatus(item.status)}
-                          color={getStatusColor(item.status)}
-                        />
+        {item.note && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            {item.note}
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-                        <Tooltip title={`Mở ${item.stockCode}`}>
-                          <IconButton
-                            size="small"
-                            onClick={() => navigate(`/stocks/${item.stockCode}`)}
-                          >
-                            <OpenInNewIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title={`Xóa ${item.stockCode}`}>
-                          <span>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleRemove(item)}
-                              disabled={updatingId === item.id}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-                {filteredItems.length === 0 && !loading && (
-                  <TableRow>
-                    <TableCell colSpan={10}>
-                      <Box sx={{ py: 5, textAlign: "center" }}>
-                        <Typography variant="h6">
-                          Chưa có mã nào trong watchlist
-                        </Typography>
-                        <Typography color="text.secondary">
-                          Thêm mã cổ phiếu hoặc đổi bộ lọc để xem danh sách phù hợp.
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+function ListBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+        {title}
+      </Typography>
+      {items.length > 0 ? (
+        <Box component="ul" sx={{ pl: 2, my: 0 }}>
+          {items.slice(0, 3).map((item, index) => (
+            <li key={`${title}-${index}`}>
+              <Typography variant="body2" sx={{ lineHeight: 1.7, overflowWrap: "anywhere" }}>
+                {item}
+              </Typography>
+            </li>
+          ))}
+        </Box>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Chưa có dữ liệu.
+        </Typography>
+      )}
     </Box>
   );
 }
@@ -587,4 +450,90 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       </CardContent>
     </Card>
   );
+}
+
+function mergeWatchlistData(apiItems: WatchlistItem[], drafts: ResearchThesisDraft[]): WatchlistViewItem[] {
+  const byCode = new Map<string, WatchlistViewItem>();
+
+  apiItems.forEach((item) => {
+    const code = item.stockCode.trim().toUpperCase();
+    const draft = drafts.find((candidate) => candidate.stockCode.trim().toUpperCase() === code);
+    byCode.set(code, toViewItem(code, item, draft));
+  });
+
+  drafts
+    .filter((draft) => draft.thesisStatus === "WATCHLIST")
+    .forEach((draft) => {
+      const code = draft.stockCode.trim().toUpperCase();
+      if (!byCode.has(code)) {
+        byCode.set(code, toViewItem(code, undefined, draft));
+      }
+    });
+
+  return Array.from(byCode.values()).filter((item) => item.thesisStatus !== "REJECTED");
+}
+
+function toViewItem(stockCode: string, apiItem?: WatchlistItem, draft?: ResearchThesisDraft): WatchlistViewItem {
+  return {
+    stockCode,
+    companyName: apiItem?.companyName,
+    industry: apiItem?.industry,
+    exchange: apiItem?.exchange,
+    apiItem,
+    draft,
+    source: draft?.source === "OPPORTUNITIES" ? "OPPORTUNITIES" : draft ? "THESIS" : "WATCHLIST_API",
+    addedAt: apiItem?.addedAt ?? draft?.createdAt,
+    updatedAt: draft?.updatedAt ?? apiItem?.updatedAt,
+    nextReviewDate: draft?.nextReviewDate,
+    thesisStatus: draft?.thesisStatus ?? "NO_THESIS",
+    note: draft?.personalNote || apiItem?.reason,
+    keyReasons: draft?.bullCase ?? [],
+    keyRisks: draft?.keyRisks ?? [],
+    missingData: draft?.missingData ?? [],
+    buyConditions: draft?.buyConditions ?? [],
+    rejectConditions: draft?.rejectConditions ?? [],
+  };
+}
+
+function sortWatchlistItems(a: WatchlistViewItem, b: WatchlistViewItem, sortMode: SortMode) {
+  if (sortMode === "CODE_ASC") {
+    return a.stockCode.localeCompare(b.stockCode);
+  }
+
+  if (sortMode === "REVIEW_ASC") {
+    return (a.nextReviewDate || "9999-12-31").localeCompare(b.nextReviewDate || "9999-12-31");
+  }
+
+  return (b.updatedAt || b.addedAt || "").localeCompare(a.updatedAt || a.addedAt || "");
+}
+
+function translateThesisStatus(value: WatchlistViewItem["thesisStatus"]) {
+  const labels: Record<WatchlistViewItem["thesisStatus"], string> = {
+    DRAFT: "Bản nháp",
+    RESEARCHING: "Đang nghiên cứu",
+    WATCHLIST: "Theo dõi",
+    WAITING_DATA: "Cần thêm dữ liệu",
+    REJECTED: "Đã loại bỏ",
+    NO_THESIS: "Chưa có hồ sơ",
+  };
+  return labels[value] ?? value;
+}
+
+function statusColor(value: WatchlistViewItem["thesisStatus"]) {
+  if (value === "WATCHLIST") return "primary";
+  if (value === "RESEARCHING") return "warning";
+  if (value === "WAITING_DATA") return "info";
+  if (value === "REJECTED") return "error";
+  return "default";
+}
+
+function sourceLabel(value: WatchlistViewItem["source"]) {
+  if (value === "OPPORTUNITIES") return "Cơ hội";
+  if (value === "THESIS") return "Hồ sơ nghiên cứu";
+  return "Watchlist";
+}
+
+function formatShortDate(value?: string) {
+  if (!value) return "-";
+  return value.slice(0, 10);
 }

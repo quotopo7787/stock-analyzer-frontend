@@ -1,0 +1,210 @@
+export type Decision = "RESEARCH_NOW" | "WATCHLIST" | "REVIEW" | "AVOID";
+
+export type DecisionReasonCode =
+  | "LOW_LIQUIDITY"
+  | "NEGATIVE_MOMENTUM"
+  | "BANK_DATA_MISSING"
+  | "FINANCIAL_SERVICES_DATA_MISSING"
+  | "INSURANCE_DATA_MISSING"
+  | "CYCLICAL_RISK"
+  | "DATA_NOT_ENOUGH"
+  | "OLD_PRICE_DATA"
+  | "INSUFFICIENT_52W_DATA"
+  | "REVENUE_DECLINE"
+  | "LOW_ROE"
+  | "VALUE_TRAP_RISK"
+  | "VALUATION_HIGH"
+  | "FINANCIAL_RISK"
+  | "QUALITY_STRONG"
+  | "VALUE_ATTRACTIVE"
+  | "NORMAL";
+
+export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
+
+export type ResearchReadiness =
+  | "READY_FOR_RESEARCH"
+  | "PRELIMINARY_ONLY"
+  | "LOW_CONFIDENCE_DATA"
+  | "WATCH_ONLY"
+  | "AVOID_FOR_NOW";
+
+export type ExecutionReadiness =
+  | "READY_TO_TRADE"
+  | "TRADE_WITH_SIZE_LIMIT"
+  | "LOW_LIQUIDITY_CAUTION"
+  | "NOT_RECOMMENDED_TO_TRADE";
+
+export type LiquidityLevel = "VERY_LIQUID" | "LIQUID" | "ACCEPTABLE" | "LOW_LIQUIDITY" | "UNKNOWN";
+
+export type PriceTrendLevel =
+  | "POSITIVE_MOMENTUM"
+  | "STABLE"
+  | "WEAK"
+  | "NEGATIVE_MOMENTUM"
+  | "FALLING_KNIFE"
+  | "UNKNOWN";
+
+export interface OpportunityQueryParams {
+  fromYear: number;
+  toYear: number;
+  page: number;
+  size: number;
+  exchange?: string;
+  excludeLowLiquidity?: boolean;
+  decision?: string;
+  decisionReasonCode?: string;
+  industryGroup?: string;
+  opportunityType?: string;
+  dataConfidenceLevel?: string;
+  conclusionConfidenceLevel?: string;
+  researchReadiness?: string;
+  executionReadiness?: string;
+  minFinalScore?: number;
+  minQualityScore?: number;
+  minAverageRoe?: number;
+  minLiquidityScore?: number;
+  minDataCompletenessScore?: number;
+  maxPe?: number;
+  maxPb?: number;
+  sort?: string;
+}
+
+export interface OpportunityMeta {
+  exchange?: string | null;
+  fromYear: number;
+  toYear: number;
+  limit?: number | null;
+  page: number;
+  size: number;
+  totalReturned: number;
+  totalBeforeFilters: number;
+  totalAfterFilters: number;
+  excludedByLowLiquidity: number;
+  excludeLowLiquidity: boolean;
+  viewMode: string;
+  responseMode: string;
+  sort: string;
+  activeFilters: Record<string, unknown>;
+  generatedAt: string;
+}
+
+export interface OpportunityPagination {
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+export interface OpportunitySummary {
+  scope: string;
+  reasonCodeCountMode: string;
+  noReasonCount: number;
+  countModes: Record<string, string>;
+  decisionCounts: Record<string, number>;
+  reasonCodeCounts: Record<string, number>;
+  liquidityCounts: Record<string, number>;
+  industryCounts: Record<string, number>;
+  priceTrendCounts: Record<string, number>;
+  dataConfidenceCounts: Record<string, number>;
+  conclusionConfidenceCounts: Record<string, number>;
+  researchReadinessCounts: Record<string, number>;
+  executionReadinessCounts: Record<string, number>;
+}
+
+export interface OpportunitySummaryItem {
+  rank: number;
+  code: string;
+  name: string;
+  exchange?: string | null;
+  industry?: string | null;
+  subIndustry?: string | null;
+  industryGroup?: string | null;
+  fromYear: number;
+  toYear: number;
+  latestPriceDate?: string | null;
+  latestPrice?: number | null;
+  finalScore?: number | null;
+  qualityScore?: number | null;
+  growthScore?: number | null;
+  cashFlowScore?: number | null;
+  balanceSheetScore?: number | null;
+  valuationScore?: number | null;
+  riskPenalty?: number | null;
+  decision: Decision | string;
+  decisionLabel?: string | null;
+  decisionReasonCode?: DecisionReasonCode | string | null;
+  decisionReasonCodes: string[];
+  decisionReasonLabels: string[];
+  opportunityType?: string | null;
+  revenueCagr?: number | null;
+  profitCagr?: number | null;
+  averageRoe?: number | null;
+  latestNetProfitMargin?: number | null;
+  averageDebtToEquity?: number | null;
+  averageCfoToNetProfit?: number | null;
+  eps?: number | null;
+  pe?: number | null;
+  pb?: number | null;
+  liquidityLevel?: LiquidityLevel | string | null;
+  liquidityWarning?: boolean | null;
+  averageVolume20d?: number | null;
+  averageTradingValue20d?: number | null;
+  priceChange1M?: number | null;
+  priceChange3M?: number | null;
+  priceChange6M?: number | null;
+  priceChange1Y?: number | null;
+  drawdownFrom52wHigh?: number | null;
+  priceTrendLevel?: PriceTrendLevel | string | null;
+  sectorSpecific?: boolean | null;
+  notApplicableMetrics?: string[];
+  missingRequiredMetrics?: string[];
+  mainReasons?: string[];
+  mainRisks?: string[];
+  dataQualityWarnings?: string[];
+  dataCompletenessScore?: number | null;
+  dataConfidenceLevel?: ConfidenceLevel | string | null;
+  dataConfidenceLabel?: string | null;
+  conclusionConfidenceLevel?: ConfidenceLevel | string | null;
+  conclusionConfidenceLabel?: string | null;
+  researchReadiness?: ResearchReadiness | string | null;
+  researchReadinessLabel?: string | null;
+  executionReadiness?: ExecutionReadiness | string | null;
+  executionReadinessLabel?: string | null;
+}
+
+export interface OpportunityDetailItem extends OpportunitySummaryItem {
+  industryRuleScore?: number | null;
+  industryValuationScore?: number | null;
+  industryRiskPenalty?: number | null;
+  industryTotalScoreImpact?: number | null;
+  industryMaxDecision?: string | null;
+  signalScore?: number | null;
+  investmentOpportunityScore?: number | null;
+  valueScore?: number | null;
+  marginOfSafetyScore?: number | null;
+  qualityFloorScore?: number | null;
+  longTermScore?: number | null;
+  liquiditySessions20d?: number | null;
+  liquidityOldestDate?: string | null;
+  liquidityLatestDate?: string | null;
+  priceChange3M?: number | null;
+  priceChange6M?: number | null;
+  priceChange1Y?: number | null;
+  high52w?: number | null;
+  low52w?: number | null;
+  distanceFrom52wLow?: number | null;
+  priceWarnings?: string[];
+  reasons?: string[];
+  risks?: string[];
+}
+
+export interface OpportunityWrappedResponse {
+  meta: OpportunityMeta;
+  pagination: OpportunityPagination;
+  summary: OpportunitySummary;
+  items: OpportunitySummaryItem[];
+}

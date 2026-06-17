@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -16,7 +16,9 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { investmentThesisApi } from "../api/investmentThesisApi";
+import { researchThesisDraftStorage } from "../api/researchThesisDraftStorage";
 import type { InvestmentThesis } from "../types/investmentThesis";
+import type { ResearchThesisDraft } from "../types/researchThesis";
 
 export default function InvestmentThesisPage() {
   const navigate = useNavigate();
@@ -25,23 +27,16 @@ export default function InvestmentThesisPage() {
   const [year, setYear] = useState(new Date().getFullYear() - 1);
 
   const [items, setItems] = useState<InvestmentThesis[]>([]);
+  const [drafts, setDrafts] = useState<ResearchThesisDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const validate = () => {
-    if (!stockCode.trim()) {
-      return "Bạn cần nhập mã cổ phiếu.";
-    }
-
-    if (!year || year < 2000) {
-      return "Năm không hợp lệ.";
-    }
-
-    return "";
-  };
+  useEffect(() => {
+    setDrafts(researchThesisDraftStorage.getAll());
+  }, []);
 
   const loadThesis = async () => {
     try {
@@ -50,7 +45,7 @@ export default function InvestmentThesisPage() {
       setErrorMessage("");
 
       if (!stockCode.trim()) {
-        setErrorMessage("Bạn cần nhập mã cổ phiếu để tải thesis.");
+        setErrorMessage("Bạn cần nhập mã cổ phiếu để tải hồ sơ.");
         return;
       }
 
@@ -61,7 +56,7 @@ export default function InvestmentThesisPage() {
       setItems(data ?? []);
     } catch (err) {
       console.error(err);
-      setErrorMessage("Không tải được luận điểm đầu tư. Kiểm tra API GET /api/investment-thesis/{stockCode}.");
+      setErrorMessage("Không tải được hồ sơ nghiên cứu. Kiểm tra API hoặc dữ liệu backend.");
     } finally {
       setLoading(false);
     }
@@ -73,32 +68,22 @@ export default function InvestmentThesisPage() {
       setSuccessMessage("");
       setErrorMessage("");
 
-      const validationError = validate();
-
-      if (validationError) {
-        setErrorMessage(validationError);
+      if (!stockCode.trim()) {
+        navigate("/investment-thesis/new");
         return;
       }
 
-      const created = await investmentThesisApi.generate(
-        stockCode.trim().toUpperCase(),
-        year
-      );
+      const normalizedStockCode = stockCode.trim().toUpperCase();
+      const existingDraft = researchThesisDraftStorage.getByStockCode(normalizedStockCode);
+      if (existingDraft) {
+        navigate(`/investment-thesis/new?draftId=${encodeURIComponent(existingDraft.id)}`);
+        return;
+      }
 
-      setSuccessMessage("Đã tạo luận điểm đầu tư thành công.");
-
-      setItems((prev) => {
-        const existed = prev.some((item) => item.id === created.id);
-
-        if (existed) {
-          return prev.map((item) => (item.id === created.id ? created : item));
-        }
-
-        return [created, ...prev];
-      });
+      navigate(`/investment-thesis/new?stockCode=${encodeURIComponent(normalizedStockCode)}`);
     } catch (err) {
       console.error(err);
-      setErrorMessage("Tạo luận điểm đầu tư thất bại. Kiểm tra API POST /api/investment-thesis/{stockCode}/{year} hoặc dữ liệu backend.");
+      setErrorMessage("Tạo hồ sơ nghiên cứu thất bại. Kiểm tra API hoặc dữ liệu backend.");
     } finally {
       setGenerating(false);
     }
@@ -158,7 +143,7 @@ export default function InvestmentThesisPage() {
                 fullWidth
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                helperText="Năm dùng để tạo thesis"
+                helperText="Năm dùng để tạo hồ sơ"
               />
             </Grid>
 
@@ -170,7 +155,7 @@ export default function InvestmentThesisPage() {
                   disabled={loading || generating}
                   sx={{ height: 56 }}
                 >
-                  {loading ? "Đang tải..." : "Tải thesis"}
+                  {loading ? "Đang tải..." : "Tải hồ sơ"}
                 </Button>
 
                 <Button
@@ -179,7 +164,7 @@ export default function InvestmentThesisPage() {
                   disabled={loading || generating}
                   sx={{ height: 56 }}
                 >
-                  {generating ? "Đang tạo..." : "Tạo thesis mới"}
+                  {generating ? "Đang tạo..." : "Tạo hồ sơ mới"}
                 </Button>
               </Stack>
             </Grid>
@@ -201,6 +186,23 @@ export default function InvestmentThesisPage() {
 
       {(loading || generating) && <CircularProgress />}
 
+      {drafts.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Hồ sơ nghiên cứu đang theo dõi
+          </Typography>
+          <Stack spacing={2}>
+            {drafts.map((draft) => (
+              <ResearchDraftCard
+                key={draft.id}
+                draft={draft}
+                onEdit={() => navigate(`/investment-thesis/new?draftId=${encodeURIComponent(draft.id)}`)}
+              />
+            ))}
+          </Stack>
+        </Box>
+      )}
+
       <Stack spacing={3}>
         {items.map((item) => (
           <ThesisCard
@@ -211,11 +213,11 @@ export default function InvestmentThesisPage() {
           />
         ))}
 
-        {items.length === 0 && !loading && !generating && (
+        {items.length === 0 && drafts.length === 0 && !loading && !generating && (
           <Card>
             <CardContent>
               <Typography color="text.secondary">
-                Chưa có luận điểm đầu tư. Nhập mã cổ phiếu rồi bấm “Tải thesis” hoặc “Tạo thesis mới”.
+                Chưa có hồ sơ nghiên cứu. Nhập mã cổ phiếu rồi bấm “Tải hồ sơ” hoặc “Tạo hồ sơ mới”.
               </Typography>
             </CardContent>
           </Card>
@@ -364,4 +366,71 @@ function ListBlock({
       )}
     </Paper>
   );
+}
+
+function ResearchDraftCard({
+  draft,
+  onEdit,
+}: {
+  draft: ResearchThesisDraft;
+  onEdit: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          sx={{ mb: 2, justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
+        >
+          <Box>
+            <Typography variant="h6">{draft.stockCode} - Hồ sơ nghiên cứu</Typography>
+            <Typography color="text.secondary">
+              Trạng thái: {translateResearchStatus(draft.thesisStatus)} · Ngày review tiếp: {draft.nextReviewDate || "-"}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Chip size="small" label={translateResearchStatus(draft.thesisStatus)} variant="outlined" />
+            {draft.updatedAt && <Chip size="small" label={`Cập nhật: ${formatShortDate(draft.updatedAt)}`} variant="outlined" />}
+            {draft.source === "OPPORTUNITIES" && <Chip size="small" label="Nguồn: Cơ hội" variant="outlined" />}
+            <Button variant="outlined" size="small" onClick={onEdit}>
+              Mở / sửa hồ sơ
+            </Button>
+          </Stack>
+        </Stack>
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: "repeat(2, minmax(0, 1fr))",
+            },
+            gap: 2,
+          }}
+        >
+          <ListBlock title="Luận điểm tích cực" items={draft.bullCase.slice(0, 4)} />
+          <ListBlock title="Rủi ro chính" items={draft.keyRisks.slice(0, 4)} />
+          <ListBlock title="Dữ liệu/câu hỏi cần kiểm tra" items={draft.missingData.slice(0, 4)} />
+          <ListBlock title="Điều kiện cân nhắc mua" items={draft.buyConditions.slice(0, 4)} />
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function translateResearchStatus(value: ResearchThesisDraft["thesisStatus"]) {
+  const labels: Record<ResearchThesisDraft["thesisStatus"], string> = {
+    DRAFT: "Bản nháp",
+    RESEARCHING: "Đang nghiên cứu",
+    WATCHLIST: "Theo dõi",
+    WAITING_DATA: "Chờ bổ sung dữ liệu",
+    REJECTED: "Đã loại bỏ",
+  };
+  return labels[value] ?? value;
+}
+
+function formatShortDate(value?: string) {
+  if (!value) return "-";
+  return value.slice(0, 10);
 }
