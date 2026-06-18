@@ -89,6 +89,9 @@ export interface OpportunityMeta {
   source?: "SNAPSHOT" | "REALTIME_FALLBACK" | string | null;
   snapshotGeneratedAt?: string | null;
   snapshotCount?: number | null;
+  latestSourceUpdatedAt?: string | null;
+  isSourceNewerThanSnapshot?: boolean | null;
+  dataFreshnessStatus?: "FRESH" | "SOURCE_NEWER_THAN_SNAPSHOT" | "UNKNOWN_SOURCE_FRESHNESS" | string | null;
   latestJobStatus?: string | null;
   warning?: string | null;
 }

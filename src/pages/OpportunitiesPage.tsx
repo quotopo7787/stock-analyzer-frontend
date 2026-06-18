@@ -611,6 +611,7 @@ export default function OpportunitiesPage() {
 
 function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] }) {
   const isFallback = meta.source === "REALTIME_FALLBACK";
+  const isStale = meta.isSourceNewerThanSnapshot === true;
   const latestJobStatus = meta.latestJobStatus;
 
   return (
@@ -619,7 +620,7 @@ function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] 
       sx={{
         mb: 3,
         p: 1.5,
-        borderColor: isFallback ? "warning.main" : "divider",
+        borderColor: isFallback || isStale ? "warning.main" : "divider",
         bgcolor: "background.paper",
       }}
     >
@@ -635,6 +636,14 @@ function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] 
             color={isFallback ? "warning" : "success"}
             variant={isFallback ? "filled" : "outlined"}
           />
+          {isStale && (
+            <Chip
+              size="small"
+              label="Nguồn mới hơn snapshot"
+              color="warning"
+              variant="filled"
+            />
+          )}
           <Typography variant="body2" color="text.secondary">
             Cập nhật: {formatDateTime(meta.snapshotGeneratedAt)}
           </Typography>
@@ -658,7 +667,17 @@ function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] 
         </Button>
       </Stack>
 
-      {(isFallback || meta.warning) && (
+      {isStale && (
+        <Alert severity="warning" sx={{ mt: 1 }}>
+          Dữ liệu nguồn đã thay đổi sau lần cập nhật snapshot. Hãy vào{" "}
+          <Link to="/admin/data-status" style={{ color: "inherit", fontWeight: 600 }}>
+            Trạng thái dữ liệu
+          </Link>{" "}
+          và nhấn Recalculate Opportunities để xem kết quả mới nhất.
+        </Alert>
+      )}
+
+      {!isStale && (isFallback || meta.warning) && (
         <Alert severity="warning" sx={{ mt: 1 }}>
           {meta.warning ?? "Chưa có snapshot phù hợp, hệ thống đang tính realtime nên có thể chậm."}
         </Alert>

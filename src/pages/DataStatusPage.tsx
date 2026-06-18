@@ -200,6 +200,48 @@ export default function DataStatusPage() {
         <Card>
           <CardContent>
             <Box sx={{ mb: 2 }}>
+              <Typography variant="h6">Source Data Freshness</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Độ mới của dữ liệu nguồn so với snapshot hiện tại.
+              </Typography>
+            </Box>
+
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, flexWrap: "wrap", rowGap: 1 }}>
+              <Chip
+                label={freshnessStatusLabel(status?.dataFreshnessStatus)}
+                color={freshnessStatusColor(status?.dataFreshnessStatus)}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Nguồn mới nhất: {formatDateTime(status?.latestSourceUpdatedAt)}
+              </Typography>
+            </Stack>
+
+            {status?.sourceFreshnessBreakdown && Object.keys(status.sourceFreshnessBreakdown).length > 0 && (
+              <TableContainer sx={{ overflowX: "auto" }}>
+                <Table size="small" sx={{ minWidth: 420 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nguồn dữ liệu</TableCell>
+                      <TableCell>Cập nhật lần cuối</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(status.sourceFreshnessBreakdown).map(([source, updatedAt]) => (
+                      <TableRow key={source}>
+                        <TableCell>{sourceLabel(source)}</TableCell>
+                        <TableCell>{formatDateTime(updatedAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Box sx={{ mb: 2 }}>
               <Typography variant="h6">Lịch sử job</Typography>
               <Typography variant="body2" color="text.secondary">
                 20 lần chạy hoặc skip gần nhất của Opportunity Snapshot Refresh.
@@ -295,6 +337,12 @@ function buildWarnings(status: OpportunitySnapshotStatus | null) {
       message: "Snapshot đã cũ hơn 1 ngày.",
     });
   }
+  if (status.isSourceNewerThanSnapshot) {
+    warnings.push({
+      severity: "warning",
+      message: "Dữ liệu nguồn mới hơn snapshot. Hãy Recalculate để xem kết quả mới nhất.",
+    });
+  }
 
   return warnings;
 }
@@ -361,4 +409,43 @@ function triggerLabel(value?: string | null) {
     SCHEDULED: "Theo lịch",
   };
   return value ? labels[value] ?? value : "-";
+}
+
+function freshnessStatusLabel(status?: string | null) {
+  switch (status) {
+    case "FRESH":
+      return "FRESH - Snapshot đang mới";
+    case "SOURCE_NEWER_THAN_SNAPSHOT":
+      return "STALE - Nguồn mới hơn snapshot";
+    case "UNKNOWN_SOURCE_FRESHNESS":
+      return "UNKNOWN - Chưa xác định";
+    default:
+      return status ?? "Chưa có thông tin";
+  }
+}
+
+type BadgeFreshnessColor = "default" | "success" | "warning" | "error" | "info";
+
+function freshnessStatusColor(status?: string | null): BadgeFreshnessColor {
+  switch (status) {
+    case "FRESH":
+      return "success";
+    case "SOURCE_NEWER_THAN_SNAPSHOT":
+      return "warning";
+    case "UNKNOWN_SOURCE_FRESHNESS":
+      return "default";
+    default:
+      return "default";
+  }
+}
+
+function sourceLabel(key: string) {
+  const labels: Record<string, string> = {
+    financialStatements: "Báo cáo tài chính",
+    stockPrices: "Giá cổ phiếu",
+    shareInfo: "Cổ phần lưu hành",
+    companyProfiles: "Hồ sơ công ty",
+    stocks: "Danh mục mã CK",
+  };
+  return labels[key] ?? key;
 }

@@ -28,6 +28,10 @@ export interface OpportunitySnapshotStatus {
   duplicateCount: number;
   latestGeneratedAt?: string | null;
   oldestGeneratedAt?: string | null;
+  latestSourceUpdatedAt?: string | null;
+  isSourceNewerThanSnapshot?: boolean | null;
+  dataFreshnessStatus?: "FRESH" | "SOURCE_NEWER_THAN_SNAPSHOT" | "UNKNOWN_SOURCE_FRESHNESS" | string | null;
+  sourceFreshnessBreakdown?: Record<string, string | null> | null;
   latestJobStatus?: BatchJobStatus | string | null;
   latestJobStartedAt?: string | null;
   latestJobFinishedAt?: string | null;
