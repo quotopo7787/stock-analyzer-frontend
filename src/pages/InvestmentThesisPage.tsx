@@ -15,7 +15,9 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { investmentThesisApi } from "../api/investmentThesisApi";
+import { decisionPlanApi } from "../api/decisionPlanApi";
 import { researchThesisDraftStorage } from "../api/researchThesisDraftStorage";
+import { decisionPlanCreateUrl, decisionPlanOpenUrl } from "../utils/decisionPlanRouting";
 import type { InvestmentThesis } from "../types/investmentThesis";
 import type { ResearchThesisDraft } from "../types/researchThesis";
 
@@ -32,10 +34,36 @@ export default function InvestmentThesisPage() {
 
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [activePlanCodes, setActivePlanCodes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setDrafts(researchThesisDraftStorage.getAll());
+    void decisionPlanApi.listAllActive()
+      .then((plans) => setActivePlanCodes(new Set(plans.map((plan) => plan.stockCode.toUpperCase()))))
+      .catch((err) => console.error("Không tải được ACTIVE decision plans", err));
   }, []);
+
+  const openDecisionPlanForThesis = (thesis: InvestmentThesis) => {
+    if (activePlanCodes.has(thesis.stockCode.toUpperCase())) {
+      navigate(decisionPlanOpenUrl(thesis.stockCode)); return;
+    }
+    navigate(decisionPlanCreateUrl({
+      stockCode: thesis.stockCode, linkedThesisId: thesis.id, action: "WATCH", status: "ACTIVE",
+      buyConditions: thesis.buyConditions, sellConditions: thesis.rejectConditions,
+      riskNotes: thesis.keyRisks ?? thesis.redFlags, personalNotes: "Tạo từ hồ sơ nghiên cứu",
+    }));
+  };
+
+  const openDecisionPlanForDraft = (draft: ResearchThesisDraft) => {
+    if (activePlanCodes.has(draft.stockCode.toUpperCase())) {
+      navigate(decisionPlanOpenUrl(draft.stockCode)); return;
+    }
+    navigate(decisionPlanCreateUrl({
+      stockCode: draft.stockCode, action: "WATCH", status: "ACTIVE",
+      buyConditions: draft.buyConditions, sellConditions: draft.rejectConditions,
+      riskNotes: draft.keyRisks, personalNotes: "Tạo từ hồ sơ nghiên cứu",
+    }));
+  };
 
   const loadThesis = async () => {
     try {
@@ -201,6 +229,8 @@ export default function InvestmentThesisPage() {
                 key={draft.id}
                 draft={draft}
                 onEdit={() => navigate(`/investment-thesis/new?draftId=${encodeURIComponent(draft.id)}`)}
+                hasActivePlan={activePlanCodes.has(draft.stockCode.toUpperCase())}
+                onDecisionPlan={() => openDecisionPlanForDraft(draft)}
               />
             ))}
           </Stack>
@@ -214,6 +244,8 @@ export default function InvestmentThesisPage() {
             thesis={item}
             formatDate={formatDate}
             onOpenStock={() => navigate(`/stocks/${item.stockCode}`)}
+            hasActivePlan={activePlanCodes.has(item.stockCode.toUpperCase())}
+            onDecisionPlan={() => openDecisionPlanForThesis(item)}
           />
         ))}
 
@@ -235,10 +267,14 @@ function ThesisCard({
   thesis,
   formatDate,
   onOpenStock,
+  hasActivePlan,
+  onDecisionPlan,
 }: {
   thesis: InvestmentThesis;
   formatDate: (value?: string) => string;
   onOpenStock: () => void;
+  hasActivePlan: boolean;
+  onDecisionPlan: () => void;
 }) {
   return (
     <Card>
@@ -260,6 +296,10 @@ function ThesisCard({
 
           <Stack direction="row" spacing={1}>
             <Chip label={`ID: ${thesis.id}`} size="small" />
+
+            <Button variant={hasActivePlan ? "contained" : "outlined"} color="secondary" size="small" onClick={onDecisionPlan}>
+              {hasActivePlan ? "Mở kế hoạch hiện tại" : "Tạo kế hoạch đầu tư"}
+            </Button>
 
             <Button variant="outlined" size="small" onClick={onOpenStock}>
               Xem chi tiết cổ phiếu
@@ -373,9 +413,13 @@ function ListBlock({
 function ResearchDraftCard({
   draft,
   onEdit,
+  hasActivePlan,
+  onDecisionPlan,
 }: {
   draft: ResearchThesisDraft;
   onEdit: () => void;
+  hasActivePlan: boolean;
+  onDecisionPlan: () => void;
 }) {
   return (
     <Card>
@@ -395,6 +439,9 @@ function ResearchDraftCard({
             <Chip size="small" label={translateResearchStatus(draft.thesisStatus)} variant="outlined" />
             {draft.updatedAt && <Chip size="small" label={`Cập nhật: ${formatShortDate(draft.updatedAt)}`} variant="outlined" />}
             {draft.source === "OPPORTUNITIES" && <Chip size="small" label="Nguồn: Cơ hội" variant="outlined" />}
+            <Button variant={hasActivePlan ? "contained" : "outlined"} color="secondary" size="small" onClick={onDecisionPlan}>
+              {hasActivePlan ? "Mở kế hoạch hiện tại" : "Tạo kế hoạch đầu tư"}
+            </Button>
             <Button variant="outlined" size="small" onClick={onEdit}>
               Mở / sửa hồ sơ
             </Button>

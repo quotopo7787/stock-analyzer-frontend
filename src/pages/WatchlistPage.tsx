@@ -19,6 +19,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate } from "react-router-dom";
 import { watchlistApi } from "../api/watchlistApi";
+import { decisionPlanApi } from "../api/decisionPlanApi";
+import { decisionPlanCreateUrl, decisionPlanOpenUrl } from "../utils/decisionPlanRouting";
 import type { ResearchThesisStatus } from "../types/researchThesis";
 import type { WatchlistItem, WatchlistSummary } from "../types/watchlist";
 
@@ -71,6 +73,7 @@ export default function WatchlistPage() {
   const [updatingCode, setUpdatingCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [activePlanCodes, setActivePlanCodes] = useState<Set<string>>(new Set());
 
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<ResearchThesisStatus | "ALL" | "NO_THESIS">("ALL");
@@ -135,9 +138,13 @@ export default function WatchlistPage() {
       setSuccessMessage("");
 
       try {
-        const data = await watchlistApi.getAll();
+        const [data, activePlans] = await Promise.all([
+          watchlistApi.getAll(),
+          decisionPlanApi.listAllActive().catch((err) => { console.error("Không tải được ACTIVE decision plans", err); return []; }),
+        ]);
         setApiItems(data.items ?? []);
         setApiSummary(data.summary ?? null);
+        setActivePlanCodes(new Set(activePlans.map((plan) => plan.stockCode.toUpperCase())));
       } catch (err) {
         console.error(err);
         setApiItems([]);
@@ -157,6 +164,21 @@ export default function WatchlistPage() {
 
     const yearQuery = item.year ? `&year=${encodeURIComponent(item.year)}` : "";
     navigate(`/investment-thesis/new?stockCode=${encodeURIComponent(item.stockCode)}${yearQuery}`);
+  };
+
+  const openDecisionPlan = (item: WatchlistViewItem) => {
+    if (activePlanCodes.has(item.stockCode.toUpperCase())) {
+      navigate(decisionPlanOpenUrl(item.stockCode));
+      return;
+    }
+    navigate(decisionPlanCreateUrl({
+      stockCode: item.stockCode,
+      linkedWatchlistId: item.apiItem?.id,
+      linkedThesisId: item.thesisId ?? undefined,
+      action: "WATCH", status: "ACTIVE", maxPositionPercent: 5,
+      buyConditions: item.buyConditions, sellConditions: item.rejectConditions,
+      riskNotes: item.keyRisks, personalNotes: "Tạo từ danh sách theo dõi",
+    }));
   };
 
   const handleRemove = async (item: WatchlistViewItem) => {
@@ -328,6 +350,8 @@ export default function WatchlistPage() {
             item={item}
             updating={updatingCode === item.stockCode}
             onOpen={() => openThesis(item)}
+            hasActivePlan={activePlanCodes.has(item.stockCode.toUpperCase())}
+            onDecisionPlan={() => openDecisionPlan(item)}
             onRemove={() => handleRemove(item)}
           />
         ))}
@@ -351,11 +375,15 @@ function WatchlistCard({
   item,
   updating,
   onOpen,
+  hasActivePlan,
+  onDecisionPlan,
   onRemove,
 }: {
   item: WatchlistViewItem;
   updating: boolean;
   onOpen: () => void;
+  hasActivePlan: boolean;
+  onDecisionPlan: () => void;
   onRemove: () => void;
 }) {
   return (
@@ -387,6 +415,9 @@ function WatchlistCard({
           </Box>
 
           <Stack direction="row" spacing={1}>
+            <Button variant={hasActivePlan ? "contained" : "outlined"} color="secondary" size="small" onClick={onDecisionPlan}>
+              {hasActivePlan ? "Mở kế hoạch" : "Tạo kế hoạch"}
+            </Button>
             <Button variant="outlined" size="small" onClick={onOpen}>
               {item.hasThesis ? "Mở hồ sơ" : "Tạo hồ sơ"}
             </Button>

@@ -11,6 +11,8 @@ import ResearchThesisFormPage from "./pages/ResearchThesisFormPage";
 import WatchlistPage from "./pages/WatchlistPage";
 import DataQualityPage from "./pages/DataQualityPage";
 import DataStatusPage from "./pages/DataStatusPage";
+import AdminDataGapsPage from "./pages/AdminDataGapsPage";
+import DecisionPlansPage from "./pages/DecisionPlansPage";
 
 function App() {
   return (
@@ -29,6 +31,8 @@ function App() {
           <Route path="investment-thesis" element={<InvestmentThesisPage />} />
           <Route path="data-quality" element={<DataQualityPage />} />
           <Route path="admin/data-status" element={<DataStatusPage />} />
+          <Route path="admin/data-gaps" element={<AdminDataGapsPage />} />
+          <Route path="decision-plans" element={<DecisionPlansPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

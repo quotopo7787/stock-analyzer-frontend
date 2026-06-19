@@ -10,7 +10,9 @@ const navItems = [
   { label: "Lịch sử hồ sơ", to: "/investment-thesis" },
   { label: "Dữ liệu", to: "/data-quality" },
   { label: "Trạng thái DL", to: "/admin/data-status" },
+  { label: "Bổ sung dữ liệu thiếu", to: "/admin/data-gaps" },
   { label: "Watchlist", to: "/watchlist" },
+  { label: "Kế hoạch đầu tư", to: "/decision-plans" },
 ];
 
 export default function AppLayout() {
