@@ -1,57 +1,46 @@
-import { AppBar, Box, Button, Container, Toolbar, Typography } from "@mui/material";
+import { AppBar, Box, Container, Drawer, List, ListItemButton, ListItemText, Toolbar, Typography } from "@mui/material";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
+const drawerWidth = 230;
 const navItems = [
   { label: "Tổng quan", to: "/" },
-  { label: "Cổ phiếu", to: "/stocks" },
-  { label: "Nhập BCTC", to: "/financial-statements/new" },
-  { label: "Xếp hạng", to: "/rankings" },
   { label: "Cơ hội", to: "/opportunities" },
-  { label: "Lịch sử hồ sơ", to: "/investment-thesis" },
-  { label: "Dữ liệu", to: "/data-quality" },
-  { label: "Trạng thái DL", to: "/admin/data-status" },
-  { label: "Bổ sung dữ liệu thiếu", to: "/admin/data-gaps" },
+  { label: "Hồ sơ nghiên cứu", to: "/investment-thesis" },
   { label: "Watchlist", to: "/watchlist" },
   { label: "Kế hoạch đầu tư", to: "/decision-plans" },
+  { label: "Danh mục đầu tư", to: "/portfolio" },
 ];
 
 export default function AppLayout() {
   const location = useLocation();
 
   return (
-    <Box>
-      <AppBar position="static">
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6">
             Stock Analyzer
           </Typography>
-
-          {navItems.map((item) => {
-            const active = item.to === "/" ? location.pathname === item.to : location.pathname.startsWith(item.to);
-
-            return (
-              <Button
-                key={item.to}
-                color="inherit"
-                component={Link}
-                to={item.to}
-                sx={{
-                  mx: 0.25,
-                  bgcolor: active ? "rgba(255,255,255,0.18)" : "transparent",
-                  border: "1px solid",
-                  borderColor: active ? "rgba(255,255,255,0.34)" : "transparent",
-                }}
-              >
-                {item.label}
-              </Button>
-            );
-          })}
         </Toolbar>
       </AppBar>
-
-      <Container sx={{ mt: 4, mb: 4 }} maxWidth="xl">
-        <Outlet />
-      </Container>
+      <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: "border-box" } }}>
+        <Toolbar />
+        <Box sx={{ px: 1.5, py: 2 }}>
+          <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>Workflow chính</Typography>
+          <List>
+            {navItems.map((item) => {
+              const active = item.to === "/" ? location.pathname === item.to : location.pathname.startsWith(item.to);
+              return <ListItemButton key={item.to} component={Link} to={item.to} selected={active} sx={{ borderRadius: 1.5, mb: 0.5 }}>
+                <ListItemText primary={item.label} />
+              </ListItemButton>;
+            })}
+          </List>
+        </Box>
+      </Drawer>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Toolbar />
+        <Container sx={{ mt: 4, mb: 4 }} maxWidth="xl"><Outlet /></Container>
+      </Box>
     </Box>
   );
 }
