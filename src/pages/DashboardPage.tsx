@@ -19,6 +19,8 @@ import type { DataGapReason, OpportunityDataGapPage } from "../types/dataGaps";
 type DashboardErrors = Partial<Record<"portfolio" | "plans" | "gaps", string>>;
 
 const gapLabels: Record<DataGapReason, string> = {
+  FUTURE_PRICE_DATE: "Ngày giá nằm trong tương lai",
+  MISSING_RECENT_PRICE: "Chưa có dữ liệu giá",
   MISSING_SHARE_INFO: "Thiếu thông tin cổ phiếu",
   MISSING_FINANCIAL_YEAR: "Thiếu năm tài chính",
   MISSING_FINANCIAL_STATEMENTS: "Thiếu báo cáo tài chính",
