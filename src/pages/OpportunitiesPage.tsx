@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -31,10 +31,20 @@ import {
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import CloseIcon from "@mui/icons-material/Close";
+import DonutSmallOutlinedIcon from "@mui/icons-material/DonutSmallOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
+import ScienceOutlinedIcon from "@mui/icons-material/ScienceOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
+import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { Link, useNavigate } from "react-router-dom";
 import { opportunitiesApi } from "../api/opportunitiesApi";
@@ -52,6 +62,12 @@ import type {
 import type { ResearchThesisDraft, ResearchThesisStatus } from "../types/researchThesis";
 
 type BadgeColor = "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info";
+type MetricTone = "primary" | "success" | "warning" | "error";
+
+const compactChipSx = {
+  height: 20,
+  "& .MuiChip-label": { px: 0.65, fontSize: "0.64rem" },
+};
 
 const currentYear = new Date().getFullYear();
 const detailRequestTimeoutMs = 15000;
@@ -328,9 +344,13 @@ export default function OpportunitiesPage() {
 
       {meta && <SnapshotStatusBar meta={meta} />}
 
+      {loading && <LinearProgress sx={{ mb: 2 }} />}
+
+      <SummaryCards response={data} />
+
       <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack spacing={2}>
+        <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+          <Stack spacing={1.5}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               Bộ lọc
             </Typography>
@@ -340,9 +360,10 @@ export default function OpportunitiesPage() {
                 gridTemplateColumns: {
                   xs: "1fr",
                   sm: "repeat(2, minmax(0, 1fr))",
-                  lg: "repeat(4, minmax(0, 1fr))",
+                  lg: "repeat(3, minmax(0, 1fr))",
+                  xl: "repeat(6, minmax(0, 1fr))",
                 },
-                gap: 2,
+                gap: 1.5,
               }}
             >
               <TextField
@@ -366,22 +387,8 @@ export default function OpportunitiesPage() {
                 size="small"
                 value={filters.exchange ?? ""}
                 onChange={(event) => updateFilter("exchange", event.target.value.toUpperCase())}
-                placeholder="HOSE"
+                placeholder="Tất cả sàn"
               />
-              <TextField
-                select
-                label="Trạng thái"
-                size="small"
-                value={filters.decision ?? ""}
-                onChange={(event) => updateFilter("decision", event.target.value)}
-              >
-                <MenuItem value="">Tất cả</MenuItem>
-                {decisionOptions.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {decisionLabel(option)}
-                  </MenuItem>
-                ))}
-              </TextField>
               <TextField
                 select
                 label="Ngành"
@@ -393,48 +400,6 @@ export default function OpportunitiesPage() {
                 {industryOptions.map((option) => (
                   <MenuItem key={option} value={option}>
                     {industryGroupLabel(option)}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Lý do"
-                size="small"
-                value={filters.decisionReasonCode ?? ""}
-                onChange={(event) => updateFilter("decisionReasonCode", event.target.value)}
-              >
-                <MenuItem value="">Tất cả</MenuItem>
-                {reasonOptions.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {reasonLabel(option)}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Mức nghiên cứu"
-                size="small"
-                value={filters.researchReadiness ?? ""}
-                onChange={(event) => updateFilter("researchReadiness", event.target.value)}
-              >
-                <MenuItem value="">Tất cả</MenuItem>
-                {researchOptions.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {readinessLabel(option)}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Khả năng giao dịch"
-                size="small"
-                value={filters.executionReadiness ?? ""}
-                onChange={(event) => updateFilter("executionReadiness", event.target.value)}
-              >
-                <MenuItem value="">Tất cả</MenuItem>
-                {executionOptions.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {executionLabel(option)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -464,19 +429,32 @@ export default function OpportunitiesPage() {
                   </MenuItem>
                 ))}
               </TextField>
-              <FormControlLabel
-                sx={{ alignSelf: "center" }}
-                control={
-                  <Checkbox
-                    checked={Boolean(filters.excludeLowLiquidity)}
-                    onChange={(event) => updateFilter("excludeLowLiquidity", event.target.checked)}
-                  />
-                }
-                label="Loại mã thanh khoản thấp"
-              />
             </Box>
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            <Accordion defaultExpanded disableGutters elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: "10px !important", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 44, "& .MuiAccordionSummary-content": { my: 1 } }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>Bộ lọc nâng cao</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0, pb: 1.5 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2,minmax(0,1fr))", lg: "repeat(4,minmax(0,1fr))", xl: "repeat(5,minmax(0,1fr))" }, gap: 1.5 }}>
+                  <TextField select label="Trạng thái" size="small" value={filters.decision ?? ""} onChange={(event) => updateFilter("decision", event.target.value)}>
+                    <MenuItem value="">Tất cả</MenuItem>{decisionOptions.map((option) => <MenuItem key={option} value={option}>{decisionLabel(option)}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Lý do" size="small" value={filters.decisionReasonCode ?? ""} onChange={(event) => updateFilter("decisionReasonCode", event.target.value)}>
+                    <MenuItem value="">Tất cả</MenuItem>{reasonOptions.map((option) => <MenuItem key={option} value={option}>{reasonLabel(option)}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Mức nghiên cứu" size="small" value={filters.researchReadiness ?? ""} onChange={(event) => updateFilter("researchReadiness", event.target.value)}>
+                    <MenuItem value="">Tất cả</MenuItem>{researchOptions.map((option) => <MenuItem key={option} value={option}>{readinessLabel(option)}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Khả năng giao dịch" size="small" value={filters.executionReadiness ?? ""} onChange={(event) => updateFilter("executionReadiness", event.target.value)}>
+                    <MenuItem value="">Tất cả</MenuItem>{executionOptions.map((option) => <MenuItem key={option} value={option}>{executionLabel(option)}</MenuItem>)}
+                  </TextField>
+                  <FormControlLabel sx={{ alignSelf: "center", ml: 0 }} control={<Checkbox size="small" checked={Boolean(filters.excludeLowLiquidity)} onChange={(event) => updateFilter("excludeLowLiquidity", event.target.checked)} />} label={<Typography variant="body2">Loại mã thanh khoản thấp</Typography>} />
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+
+            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-start" }}>
               <Button
                 variant="contained"
                 startIcon={<SearchIcon />}
@@ -493,8 +471,6 @@ export default function OpportunitiesPage() {
         </CardContent>
       </Card>
 
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
-
       {errorMessage && (
         <Alert
           severity="error"
@@ -509,7 +485,7 @@ export default function OpportunitiesPage() {
         </Alert>
       )}
 
-      <SummaryCards response={data} topIndustries={topIndustries} />
+      <TopIndustries topIndustries={topIndustries} summary={summary} />
 
       <Card>
         <CardContent sx={{ pb: 1 }}>
@@ -626,43 +602,42 @@ function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] 
     >
       <Stack
         direction={{ xs: "column", md: "row" }}
-        spacing={1}
+        spacing={{ xs: 1.25, md: 2 }}
         sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
       >
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
-          <Chip
-            size="small"
-            label={snapshotSourceLabel(meta.source)}
-            color={isFallback ? "warning" : "success"}
-            variant={isFallback ? "filled" : "outlined"}
-          />
-          {isStale && (
-            <Chip
-              size="small"
-              label="Nguồn mới hơn snapshot"
-              color="warning"
-              variant="filled"
-            />
-          )}
-          <Typography variant="body2" color="text.secondary">
-            Cập nhật: {formatDateTime(meta.snapshotGeneratedAt)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {formatNumber(meta.snapshotCount ?? meta.totalBeforeFilters, 0)} mã
-          </Typography>
-          {latestJobStatus && (
-            <Tooltip title={jobStatusTooltip(latestJobStatus)}>
-              <Chip
-                size="small"
-                label={`Job: ${jobStatusLabel(latestJobStatus)}`}
-                color={jobStatusColor(latestJobStatus)}
-                variant="outlined"
-              />
-            </Tooltip>
-          )}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 1, md: 2 }} sx={{ alignItems: { xs: "flex-start", md: "center" }, flex: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <CalendarMonthOutlinedIcon color="action" fontSize="small" />
+            <Typography variant="body2" color="text.secondary">
+              Cập nhật: <Box component="span" sx={{ color: "text.primary", fontWeight: 600 }}>{formatDateTime(meta.snapshotGeneratedAt)}</Box>
+            </Typography>
+          </Stack>
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <LayersOutlinedIcon color="action" fontSize="small" />
+            <Box>
+              <Typography variant="caption" color="text.secondary">Tổng số mã sau lọc</Typography>
+              <Typography variant="body2" color="primary.main" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                {formatNumber(meta.totalAfterFilters, 0)}
+              </Typography>
+            </Box>
+          </Stack>
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+            <SettingsOutlinedIcon color="action" fontSize="small" />
+            <Typography variant="body2" color="text.secondary">Job:</Typography>
+            {latestJobStatus ? (
+              <Tooltip title={jobStatusTooltip(latestJobStatus)}>
+                <Chip size="small" label={jobStatusLabel(latestJobStatus)} color={jobStatusColor(latestJobStatus)} />
+              </Tooltip>
+            ) : (
+              <Chip size="small" label={snapshotSourceLabel(meta.source)} color={isFallback ? "warning" : "success"} variant="outlined" />
+            )}
+            {isStale && <Chip size="small" label="Nguồn mới hơn snapshot" color="warning" />}
+          </Stack>
         </Stack>
 
-        <Button component={Link} to="/admin/data-status" size="small" variant="text">
+        <Button component={Link} to="/admin/data-status" size="small" variant="text" endIcon={<ArrowForwardIcon />} sx={{ whiteSpace: "nowrap" }}>
           Xem trạng thái dữ liệu
         </Button>
       </Stack>
@@ -686,49 +661,50 @@ function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] 
   );
 }
 
-function SummaryCards({
-  response,
-  topIndustries,
-}: {
-  response: OpportunityWrappedResponse | null;
-  topIndustries: Array<[string, number]>;
-}) {
+function SummaryCards({ response }: { response: OpportunityWrappedResponse | null }) {
   const meta = response?.meta;
   const summary = response?.summary;
 
   return (
-    <Stack spacing={1.5} sx={{ mb: 3 }}>
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-          gap: 2,
+          gridTemplateColumns: { xs: "repeat(2,minmax(0,1fr))", md: "repeat(3,minmax(0,1fr))", xl: "repeat(6,minmax(0,1fr))" },
+          gap: 1.5,
+          mb: 2,
         }}
       >
         <MetricCard
+          icon={<FilterAltOutlinedIcon />}
+          tone="primary"
           label="Sau lọc"
           value={formatNumber(meta?.totalAfterFilters, 0)}
           helper={`Ban đầu: ${formatNumber(meta?.totalBeforeFilters, 0)} mã`}
         />
         <MetricCard
+          icon={<FilterAltOffOutlinedIcon />}
+          tone="error"
           label="Đã loại thanh khoản thấp"
           value={formatNumber(meta?.excludedByLowLiquidity, 0)}
           helper={meta?.excludeLowLiquidity ? "Đang bật bộ lọc" : "Bộ lọc đang tắt"}
         />
         <MetricCard
+          icon={<DonutSmallOutlinedIcon />}
+          tone="primary"
           label="Trạng thái"
-          value={`${count(summary?.decisionCounts, "WATCHLIST")} / ${count(
-            summary?.decisionCounts,
-            "REVIEW"
-          )} / ${count(summary?.decisionCounts, "AVOID")}`}
+          value={<><Box component="span" color="primary.main">{count(summary?.decisionCounts, "WATCHLIST")}</Box> / <Box component="span" color="warning.main">{count(summary?.decisionCounts, "REVIEW")}</Box> / <Box component="span" color="text.secondary">{count(summary?.decisionCounts, "AVOID")}</Box></>}
           helper="Theo dõi / Review / Tránh"
         />
         <MetricCard
+          icon={<ScienceOutlinedIcon />}
+          tone="success"
           label="Sẵn sàng nghiên cứu"
           value={formatNumber(count(summary?.researchReadinessCounts, "READY_FOR_RESEARCH"), 0)}
           helper={`Theo dõi thêm: ${formatNumber(count(summary?.researchReadinessCounts, "WATCH_ONLY"), 0)}`}
         />
         <MetricCard
+          icon={<TrendingUpOutlinedIcon />}
+          tone="primary"
           label="Thanh khoản giao dịch"
           value={formatNumber(count(summary?.executionReadinessCounts, "READY_TO_TRADE"), 0)}
           helper={`Giới hạn quy mô: ${formatNumber(
@@ -737,37 +713,24 @@ function SummaryCards({
           )}`}
         />
         <MetricCard
+          icon={<ShieldOutlinedIcon />}
+          tone="primary"
           label="Độ tin cậy kết luận"
-          value={`${count(summary?.conclusionConfidenceCounts, "HIGH")} / ${count(
-            summary?.conclusionConfidenceCounts,
-            "MEDIUM"
-          )} / ${count(summary?.conclusionConfidenceCounts, "LOW")}`}
+          value={<><Box component="span" color="success.main">{count(summary?.conclusionConfidenceCounts, "HIGH")}</Box> / <Box component="span" color="warning.main">{count(summary?.conclusionConfidenceCounts, "MEDIUM")}</Box> / <Box component="span" color="error.main">{count(summary?.conclusionConfidenceCounts, "LOW")}</Box></>}
           helper="Cao / TB / Thấp"
         />
       </Box>
-
-      <Paper variant="outlined" sx={{ p: 1.5 }}>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center", rowGap: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Top ngành
-          </Typography>
-          {topIndustries.length > 0 ? (
-            topIndustries.map(([name, value]) => (
-              <Chip key={name} size="small" label={`${industryGroupLabel(name)}: ${formatNumber(value, 0)}`} />
-            ))
-          ) : (
-            <Chip size="small" label="Chưa có dữ liệu ngành" variant="outlined" />
-          )}
-          <Chip
-            size="small"
-            label={`Không cảnh báo lớn: ${formatNumber(summary?.noReasonCount, 0)}`}
-            color="success"
-            variant="outlined"
-          />
-        </Stack>
-      </Paper>
-    </Stack>
   );
+}
+
+function TopIndustries({ topIndustries, summary }: { topIndustries: Array<[string, number]>; summary?: OpportunityWrappedResponse["summary"] }) {
+  return <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center", rowGap: 1, mb: 2 }}>
+    <Typography variant="body2" sx={{ fontWeight: 700, mr: 0.5 }}>Top ngành</Typography>
+    {topIndustries.length > 0 ? topIndustries.map(([name, value]) => (
+      <Chip key={name} size="small" label={`${industryGroupLabel(name)}: ${formatNumber(value, 0)}`} variant="outlined" />
+    )) : <Chip size="small" label="Chưa có dữ liệu ngành" variant="outlined" />}
+    <Chip size="small" label={`Không cảnh báo lớn: ${formatNumber(summary?.noReasonCount, 0)}`} color="success" variant="outlined" />
+  </Stack>;
 }
 
 function OpportunityTable({
@@ -777,8 +740,8 @@ function OpportunityTable({
   items: OpportunitySummaryItem[];
   onOpenDetail: (item: OpportunitySummaryItem) => void;
 }) {
-  const rankWidth = 64;
-  const codeWidth = 240;
+  const rankWidth = 48;
+  const codeWidth = 300;
   const stickyRankSx = {
     position: "sticky",
     left: 0,
@@ -800,8 +763,8 @@ function OpportunityTable({
     position: "sticky",
     right: 0,
     zIndex: 2,
-    minWidth: 64,
-    width: 64,
+    minWidth: 72,
+    width: 72,
     bgcolor: "background.paper",
     boxShadow: "-2px 0 0 rgba(0,0,0,0.06)",
   };
@@ -813,22 +776,23 @@ function OpportunityTable({
         stickyHeader
         size="small"
         sx={{
-          minWidth: 1180,
-          "& .MuiTableCell-root": { px: 0.9, py: 0.85 },
+          minWidth: 1250,
+          "& .MuiTableCell-root": { px: 1, py: 0.8 },
           "& .MuiTableCell-head": { fontWeight: 700, whiteSpace: "nowrap" },
+          "& .MuiTableRow-root:hover .MuiTableCell-root": { bgcolor: "#f7fbff" },
         }}
       >
         <TableHead>
           <TableRow>
             <TableCell sx={{ ...stickyRankSx, ...stickyHeadSx }}>#</TableCell>
             <TableCell sx={{ ...stickyCodeSx, ...stickyHeadSx }}>Mã / Tên / Sàn / Ngành</TableCell>
-            <TableCell>Điểm</TableCell>
+            <TableCell align="right">Điểm</TableCell>
             <TableCell>Trạng thái</TableCell>
             <TableCell>Lý do</TableCell>
             <TableCell>Độ tin cậy</TableCell>
             <TableCell>Sẵn sàng</TableCell>
-            <TableCell>Định giá</TableCell>
-            <TableCell>Tăng trưởng</TableCell>
+            <TableCell align="right">Định giá</TableCell>
+            <TableCell align="right">Tăng trưởng</TableCell>
             <TableCell>Thanh khoản</TableCell>
             <TableCell align="right" sx={{ ...stickyActionSx, ...stickyHeadSx }}>
               Hành động
@@ -839,42 +803,27 @@ function OpportunityTable({
           {items.map((item) => (
             <TableRow key={`${item.code}-${item.rank}`} hover>
               <TableCell sx={stickyRankSx}>
-                <Chip size="small" label={`#${item.rank}`} color={item.rank <= 10 ? "primary" : "default"} />
+                <Typography variant="body2" sx={{ textAlign: "center" }}>{item.rank}</Typography>
               </TableCell>
               <TableCell sx={stickyCodeSx}>
-                <Typography sx={{ fontWeight: 700 }}>{item.code}</Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    display: "-webkit-box",
-                    overflow: "hidden",
-                    WebkitBoxOrient: "vertical",
-                    WebkitLineClamp: 2,
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {item.name}
-                </Typography>
-                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", rowGap: 0.5, mt: 0.75 }}>
-                  {item.exchange && <Chip size="small" label={item.exchange} />}
-                  {item.industryGroup && (
-                    <Chip size="small" label={industryGroupLabel(item.industryGroup)} variant="outlined" />
-                  )}
+                <Stack direction="row" spacing={0.65} sx={{ alignItems: "center", whiteSpace: "nowrap", overflow: "hidden" }}>
+                  <Typography variant="body2" sx={{ fontWeight: 800, minWidth: 38 }}>{item.code}</Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 132 }}>
+                    {item.name}
+                  </Typography>
+                  {item.exchange && <Chip size="small" label={item.exchange} sx={compactChipSx} />}
+                  {item.industryGroup && <Chip size="small" label={industryGroupLabel(item.industryGroup)} variant="outlined" sx={compactChipSx} />}
                 </Stack>
               </TableCell>
-              <TableCell sx={{ minWidth: 112 }}>
+              <TableCell align="right" sx={{ minWidth: 72 }}>
                 <Tooltip title="Điểm sàng lọc tổng hợp, không phải khuyến nghị mua.">
                   <Chip
+                    size="small"
                     label={formatNumber(item.finalScore)}
                     color={scoreColor(item.finalScore)}
                     sx={{ fontWeight: 700 }}
                   />
                 </Tooltip>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                  Q{formatNumber(item.qualityScore)} / G{formatNumber(item.growthScore)} / V
-                  {formatNumber(item.valuationScore)}
-                </Typography>
               </TableCell>
               <TableCell sx={{ minWidth: 94 }}>
                 <Chip label={decisionLabel(item.decision, item.decisionLabel)} color={decisionColor(item.decision)} size="small" />
@@ -883,18 +832,10 @@ function OpportunityTable({
                 <ReasonChips item={item} />
               </TableCell>
               <TableCell sx={{ minWidth: 96 }}>
-                <Tooltip title="Độ tin cậy của dữ liệu đầu vào.">
+                <Tooltip title={`Dữ liệu: ${shortConfidenceLevel(item.dataConfidenceLevel)} · Kết luận: ${shortConfidenceLevel(item.conclusionConfidenceLevel)}`}>
                   <Chip
                     size="small"
-                    label={`DL: ${shortConfidenceLevel(item.dataConfidenceLevel)}`}
-                    color={confidenceColor(item.dataConfidenceLevel)}
-                    sx={{ mb: 0.5 }}
-                  />
-                </Tooltip>
-                <Tooltip title="Độ tin cậy của kết luận phân tích.">
-                  <Chip
-                    size="small"
-                    label={`KL: ${shortConfidenceLevel(item.conclusionConfidenceLevel)}`}
+                    label={shortConfidenceLevel(item.conclusionConfidenceLevel)}
                     color={confidenceColor(item.conclusionConfidenceLevel)}
                   />
                 </Tooltip>
@@ -908,38 +849,19 @@ function OpportunityTable({
                     sx={{ mb: 0.5 }}
                   />
                 </Tooltip>
-                <Tooltip title="Khả năng giao dịch/thoát vị thế dựa trên thanh khoản.">
-                  <Chip
-                    size="small"
-                    label={shortExecutionLabel(item.executionReadiness)}
-                    color={executionColor(item.executionReadiness)}
-                  />
+              </TableCell>
+              <TableCell align="right" sx={{ minWidth: 122 }}>
+                <Typography variant="caption" sx={{ display: "block" }}>P/E {formatNumber(item.pe)}</Typography>
+                <Typography variant="caption" sx={{ display: "block" }}>P/B {formatNumber(item.pb)}</Typography>
+              </TableCell>
+              <TableCell align="right" sx={{ minWidth: 96 }}>
+                <Typography variant="caption" sx={{ display: "block" }}>DT {formatPercent(item.revenueCagr)}</Typography>
+                <Typography variant="caption" sx={{ display: "block" }}>LN {formatPercent(item.profitCagr)}</Typography>
+              </TableCell>
+              <TableCell sx={{ minWidth: 96 }}>
+                <Tooltip title={item.liquidityWarning ? "Thanh khoản thấp, cần thận trọng khi mở hoặc thoát vị thế." : "Mức thanh khoản giao dịch."}>
+                  <Chip size="small" label={liquidityLabel(item.liquidityLevel)} color={liquidityColor(item.liquidityLevel)} />
                 </Tooltip>
-              </TableCell>
-              <TableCell sx={{ minWidth: 122 }}>
-                <Typography variant="body2">Giá: {formatNumber(item.latestPrice)}k</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                  Ngày: {item.latestPriceDate ?? "-"}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  P/E {formatNumber(item.pe)} · P/B {formatNumber(item.pb)}
-                </Typography>
-              </TableCell>
-              <TableCell sx={{ minWidth: 96 }}>
-                <Typography variant="body2">DT {formatPercent(item.revenueCagr)}</Typography>
-                <Typography variant="body2">LN {formatPercent(item.profitCagr)}</Typography>
-                <Typography variant="body2">ROE {formatPercent(item.averageRoe)}</Typography>
-              </TableCell>
-              <TableCell sx={{ minWidth: 96 }}>
-                <Chip
-                  size="small"
-                  label={liquidityLabel(item.liquidityLevel)}
-                  color={liquidityColor(item.liquidityLevel)}
-                  sx={{ mb: 0.5 }}
-                />
-                {item.liquidityWarning && (
-                  <Chip size="small" label="Thanh khoản thấp" color="warning" sx={{ display: "block" }} />
-                )}
               </TableCell>
               <TableCell align="right" sx={stickyActionSx}>
                 <Tooltip title="Xem chi tiết">
@@ -1242,14 +1164,36 @@ function TechnicalDetailAccordion({ title, values }: { title: string; values?: s
   );
 }
 
-function MetricCard({ label, value, helper }: { label: string; value: string; helper?: string }) {
+function MetricCard({
+  label,
+  value,
+  helper,
+  icon,
+  tone = "primary",
+}: {
+  label: string;
+  value: ReactNode;
+  helper?: string;
+  icon: ReactNode;
+  tone?: MetricTone;
+}) {
+  const toneStyles: Record<MetricTone, { color: string; background: string }> = {
+    primary: { color: "primary.main", background: "rgba(37, 99, 235, 0.09)" },
+    success: { color: "success.main", background: "rgba(22, 163, 74, 0.09)" },
+    warning: { color: "warning.main", background: "rgba(234, 88, 12, 0.09)" },
+    error: { color: "error.main", background: "rgba(220, 38, 38, 0.08)" },
+  };
+
   return (
-    <Card>
-      <CardContent>
+    <Card sx={{ minWidth: 0 }}>
+      <CardContent sx={{ p: "16px !important" }}>
+        <Box sx={{ width: 40, height: 40, borderRadius: 2.5, display: "grid", placeItems: "center", color: toneStyles[tone].color, bgcolor: toneStyles[tone].background, mb: 1 }}>
+          {icon}
+        </Box>
         <Typography variant="caption" color="text.secondary">
           {label}
         </Typography>
-        <Typography variant="h5" sx={{ mt: 0.5 }}>
+        <Typography variant="h5" sx={{ mt: 0.25, fontWeight: 800, lineHeight: 1.2, color: tone === "error" ? "error.main" : tone === "success" ? "success.main" : "text.primary", whiteSpace: "nowrap" }}>
           {value}
         </Typography>
         {helper && (
@@ -1571,16 +1515,6 @@ function shortResearchLabel(code?: string | null) {
   return code ? labels[code] ?? readinessLabel(code) : "-";
 }
 
-function shortExecutionLabel(code?: string | null) {
-  const labels: Record<string, string> = {
-    READY_TO_TRADE: "GD tốt",
-    TRADE_WITH_SIZE_LIMIT: "Giới hạn quy mô",
-    LOW_LIQUIDITY_CAUTION: "Thanh khoản yếu",
-    NOT_RECOMMENDED_TO_TRADE: "Không nên GD",
-  };
-  return code ? labels[code] ?? executionLabel(code) : "-";
-}
-
 function liquidityLabel(code?: string | null) {
   const labels: Record<string, string> = {
     VERY_LIQUID: "Rất tốt",
@@ -1662,8 +1596,9 @@ function metricLabel(value: string) {
 function scoreColor(score?: number | null): BadgeColor {
   if (score === undefined || score === null) return "default";
   if (score >= 8) return "success";
+  if (score >= 7) return "primary";
   if (score >= 6) return "warning";
-  return "error";
+  return score < 5 ? "error" : "default";
 }
 
 function decisionColor(value?: string | null): BadgeColor {
@@ -1673,7 +1608,7 @@ function decisionColor(value?: string | null): BadgeColor {
     case "REVIEW":
       return "warning";
     case "AVOID":
-      return "default";
+      return "error";
     default:
       return "default";
   }
@@ -1697,7 +1632,7 @@ function readinessColor(value?: string | null): BadgeColor {
     case "READY_FOR_RESEARCH":
       return "success";
     case "WATCH_ONLY":
-      return "warning";
+      return "primary";
     case "PRELIMINARY_ONLY":
       return "info";
     case "LOW_CONFIDENCE_DATA":
