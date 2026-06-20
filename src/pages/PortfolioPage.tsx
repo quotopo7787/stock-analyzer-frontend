@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions,
@@ -11,6 +12,9 @@ import type { PortfolioPosition, PortfolioPositionPayload, PortfolioPositionStat
 const pageSize = 20;
 
 export default function PortfolioPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const handledQuery = useRef("");
   const [status, setStatus] = useState<PortfolioPositionStatus | "ALL">("ACTIVE");
   const [search, setSearch] = useState("");
   const [positions, setPositions] = useState<PortfolioPosition[]>([]);
@@ -21,6 +25,7 @@ export default function PortfolioPage() {
   const [toast, setToast] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<PortfolioPosition | null>(null);
+  const [prefillStockCode, setPrefillStockCode] = useState("");
 
   const loadPositions = useCallback(async () => {
     try {
@@ -45,6 +50,17 @@ export default function PortfolioPage() {
 
   useEffect(() => { void loadPositions(); }, [loadPositions]);
   useEffect(() => { void loadSummary(); }, [loadSummary]);
+  useEffect(() => {
+    const queryKey = searchParams.toString();
+    if (!queryKey || handledQuery.current === queryKey) return;
+    const stockCodeParam = searchParams.get("stockCode")?.trim().toUpperCase();
+    if (!stockCodeParam) return;
+    handledQuery.current = queryKey;
+    setSearch(stockCodeParam); setStatus("ACTIVE"); setPage(0);
+    if (searchParams.get("create") === "1") {
+      setEditing(null); setPrefillStockCode(stockCodeParam); setDialogOpen(true);
+    }
+  }, [searchParams]);
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -54,7 +70,8 @@ export default function PortfolioPage() {
   const totalPages = Math.max(Math.ceil(filtered.length / pageSize), 1);
   const visible = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
-  const openCreate = () => { setEditing(null); setDialogOpen(true); };
+  const clearIntegrationQuery = () => { if (searchParams.toString()) navigate("/portfolio", { replace: true }); };
+  const openCreate = () => { setEditing(null); setPrefillStockCode(""); setDialogOpen(true); };
   const openEdit = async (position: PortfolioPosition) => {
     try { setEditing(await portfolioApi.get(position.id)); setDialogOpen(true); }
     catch (err) { setError(apiErrorMessage(err)); }
@@ -129,8 +146,8 @@ export default function PortfolioPage() {
         <Button disabled={page + 1 >= totalPages} onClick={() => setPage((value) => value + 1)}>Trang sau</Button>
       </Stack>
     </CardContent></Card>
-    <PositionDialog open={dialogOpen} position={editing} onClose={() => setDialogOpen(false)} onSaved={async (message) => {
-      setDialogOpen(false); setToast(message); await refresh();
+    <PositionDialog open={dialogOpen} position={editing} prefillStockCode={prefillStockCode} onClose={() => { setDialogOpen(false); clearIntegrationQuery(); }} onSaved={async (message) => {
+      setDialogOpen(false); setToast(message); clearIntegrationQuery(); await refresh();
     }} />
     <Snackbar open={Boolean(toast)} autoHideDuration={6000} onClose={() => setToast("")}>
       <Alert severity="success" onClose={() => setToast("")}>{toast}</Alert>
@@ -143,8 +160,8 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: "
     <Typography variant="h5" sx={{ color: toneColor(tone) }}>{value}</Typography></CardContent></Card>;
 }
 
-function PositionDialog({ open, position, onClose, onSaved }: {
-  open: boolean; position: PortfolioPosition | null; onClose: () => void; onSaved: (message: string) => Promise<void>;
+function PositionDialog({ open, position, prefillStockCode, onClose, onSaved }: {
+  open: boolean; position: PortfolioPosition | null; prefillStockCode: string; onClose: () => void; onSaved: (message: string) => Promise<void>;
 }) {
   const [stockCode, setStockCode] = useState("");
   const [decisionPlanId, setDecisionPlanId] = useState("");
@@ -156,10 +173,10 @@ function PositionDialog({ open, position, onClose, onSaved }: {
 
   useEffect(() => {
     if (!open) return;
-    setStockCode(position?.stockCode ?? ""); setDecisionPlanId(valueString(position?.linkedDecisionPlanId));
+    setStockCode(position?.stockCode ?? prefillStockCode); setDecisionPlanId(valueString(position?.linkedDecisionPlanId));
     setQuantity(valueString(position?.quantity)); setAverageCost(valueString(position?.averageCost));
     setNotes(position?.notes ?? ""); setError("");
-  }, [open, position]);
+  }, [open, position, prefillStockCode]);
 
   const save = async () => {
     try {

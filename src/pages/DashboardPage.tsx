@@ -99,7 +99,8 @@ export default function DashboardPage() {
               <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {item.positionWarning === "OVER_MAX_POSITION" && <Chip color="warning" size="small" label="Vượt tỷ trọng" />}
                 {item.priceDataWarning === "MISSING_LATEST_PRICE" && <Chip color="error" size="small" label="Thiếu giá gần nhất" />}
-                <Button size="small" onClick={() => navigate("/portfolio")}>Xem danh mục</Button>
+                <Button size="small" onClick={() => navigate(`/portfolio?stockCode=${encodeURIComponent(item.stockCode)}`)}>Mở vị thế</Button>
+                <Button size="small" variant="outlined" onClick={() => navigate(`/decision-plans?open=1&stockCode=${encodeURIComponent(item.stockCode)}`)}>Mở kế hoạch</Button>
               </Stack>
             </Stack>
           </CardContent></Card>)}
@@ -124,15 +125,15 @@ export default function DashboardPage() {
     <Box sx={sectionGridSx}>
       <Section title="Thiếu dữ liệu quan trọng" icon={<StorageOutlined />} error={errors.gaps}>
         <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
-          {(Object.keys(gapLabels) as DataGapReason[]).map((reason) => <Metric key={reason} label={gapLabels[reason]} value={formatNumber(gaps?.reasonCounts?.[reason])} compact icon={gapIcon(reason)} iconTone="blue" />)}
+          {(Object.keys(gapLabels) as DataGapReason[]).map((reason) => <Metric key={reason} label={gapLabels[reason]} value={formatNumber(gaps?.reasonCounts?.[reason])} compact icon={gapIcon(reason)} iconTone="blue" onClick={() => navigate(`/admin/data-gaps?reason=${reason}`)} />)}
         </Box>
         {gaps && <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}><Typography variant="body2" color="text.secondary">Tổng cộng <strong>{formatNumber(gaps.totalElements)}</strong> mã đang thiếu dữ liệu.</Typography><Button size="small" endIcon={<ArrowForward />} onClick={() => navigate("/admin/data-gaps")}>Mở bổ sung dữ liệu</Button></Stack>}
       </Section>
 
       <Section title="Đối chiếu kế hoạch / danh mục" icon={<BalanceOutlined />} error={errors.portfolio || errors.plans}>
-        <MismatchGroup title="Có vị thế nhưng chưa có kế hoạch" items={positionsWithoutPlan.map((item) => item.stockCode)} empty="Mọi vị thế đều đã có kế hoạch ACTIVE." />
+        <MismatchGroup title="Có vị thế nhưng chưa có kế hoạch" items={positionsWithoutPlan.map((item) => item.stockCode)} empty="Mọi vị thế đều đã có kế hoạch ACTIVE." actionLabel="Tạo kế hoạch" onAction={(code) => navigate(`/decision-plans?create=1&stockCode=${encodeURIComponent(code)}&action=WATCH&status=ACTIVE&reviewDate=${dateAfterDays(30)}`)} />
         <Divider sx={{ my: 2 }} />
-        <MismatchGroup title="Có kế hoạch nhưng chưa có vị thế" items={plansWithoutPosition.map((item) => item.stockCode)} empty="Mọi kế hoạch ACTIVE đều đã có vị thế." />
+        <MismatchGroup title="Có kế hoạch nhưng chưa có vị thế" items={plansWithoutPosition.map((item) => item.stockCode)} empty="Mọi kế hoạch ACTIVE đều đã có vị thế." actionLabel="Tạo vị thế" onAction={(code) => navigate(`/portfolio?create=1&stockCode=${encodeURIComponent(code)}`)} />
         <Box sx={{ textAlign: "right", mt: 1.5 }}><Button size="small" endIcon={<ArrowForward />} onClick={() => navigate("/decision-plans")}>Xem kế hoạch đầu tư</Button></Box>
       </Section>
     </Box>
@@ -161,9 +162,9 @@ function Section({ title, icon, actionLabel, onAction, error, children }: { titl
   </CardContent></Card>;
 }
 
-function Metric({ label, value, tone, compact, icon, iconTone = "blue", subValue }: { label: string; value: string; tone?: "positive" | "negative" | "warning"; compact?: boolean; icon?: React.ReactNode; iconTone?: "blue" | "green" | "orange" | "purple"; subValue?: string }) {
+function Metric({ label, value, tone, compact, icon, iconTone = "blue", subValue, onClick }: { label: string; value: string; tone?: "positive" | "negative" | "warning"; compact?: boolean; icon?: React.ReactNode; iconTone?: "blue" | "green" | "orange" | "purple"; subValue?: string; onClick?: () => void }) {
   const iconColors = { blue: { bg: "#eaf3ff", fg: "#1677ee" }, green: { bg: "#e8f7ee", fg: "#17974c" }, orange: { bg: "#fff0e5", fg: "#f46b18" }, purple: { bg: "#f2ecff", fg: "#6d5ce7" } }[iconTone];
-  return <Card variant="outlined" sx={{ boxShadow: compact ? "none" : undefined, minWidth: 0 }}><CardContent sx={{ p: compact ? 1.4 : 2, minHeight: compact ? 112 : 138, "&:last-child": { pb: compact ? 1.4 : 2 } }}>
+  return <Card variant="outlined" onClick={onClick} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} aria-label={onClick ? `Lọc ${label}` : undefined} sx={{ boxShadow: compact ? "none" : undefined, minWidth: 0, cursor: onClick ? "pointer" : "default", transition: "transform .15s ease, border-color .15s ease", "&:hover": onClick ? { transform: "translateY(-2px)", borderColor: "primary.light" } : undefined, "&:focus-visible": onClick ? { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } : undefined }}><CardContent sx={{ p: compact ? 1.4 : 2, minHeight: compact ? 112 : 138, "&:last-child": { pb: compact ? 1.4 : 2 } }}>
     {icon && <Box sx={{ width: compact ? 32 : 40, height: compact ? 32 : 40, borderRadius: 1.5, bgcolor: iconColors.bg, color: iconColors.fg, display: "grid", placeItems: "center", mb: compact ? 1 : 1.4, "& svg": { fontSize: compact ? 19 : 23 } }}>{icon}</Box>}
     <Typography variant="body2" color="text.secondary" sx={{ fontSize: compact ? 12 : 13 }}>{label}</Typography>
     <Typography variant={compact ? "h6" : "h5"} sx={{ color: toneColor(tone), mt: 0.45, fontSize: compact ? 20 : 21 }}>{value}</Typography>
@@ -173,10 +174,10 @@ function Metric({ label, value, tone, compact, icon, iconTone = "blue", subValue
 
 function Empty({ text, detail, icon }: { text: string; detail?: string; icon?: React.ReactNode }) { return <Box sx={{ py: icon ? 4 : 1, textAlign: icon ? "center" : "left" }}>{icon && <Box sx={{ width: 58, height: 58, borderRadius: "50%", bgcolor: "#eaf3ff", color: "primary.main", display: "grid", placeItems: "center", mx: "auto", mb: 1.5, "& svg": { fontSize: 28 } }}>{icon}</Box>}<Typography color={icon ? "text.primary" : "text.secondary"} sx={{ fontWeight: icon ? 600 : 400 }}>{text}</Typography>{detail && <Typography variant="body2" color="text.secondary" sx={{ mt: .5 }}>{detail}</Typography>}</Box>; }
 
-function MismatchGroup({ title, items, empty }: { title: string; items: string[]; empty: string }) {
+function MismatchGroup({ title, items, empty, actionLabel, onAction }: { title: string; items: string[]; empty: string; actionLabel: string; onAction: (code: string) => void }) {
   const statusOk = items.length === 0;
   return <Box><Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>{statusOk ? <CheckCircleOutlined color="success" fontSize="small" /> : <WarningAmberOutlined color="warning" fontSize="small" />}<Typography sx={{ fontWeight: 650 }}>{title}</Typography></Stack>
-    {items.length > 0 ? <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.5, pl: 3.5 }}>{items.map((code) => <Chip key={code} label={code} size="small" sx={{ bgcolor: "#e7f6ed", color: "#17743d" }} />)}</Stack> : <Box sx={{ pl: 3.5 }}><Empty text={empty} /></Box>}
+    {items.length > 0 ? <Stack spacing={1} sx={{ pl: 3.5 }}>{items.map((code) => <Stack key={code} direction="row" spacing={1} sx={{ alignItems: "center" }}><Chip label={code} size="small" sx={{ bgcolor: "#fff0e5", color: "#b54708" }} /><Button size="small" variant="outlined" onClick={() => onAction(code)}>{actionLabel}</Button></Stack>)}</Stack> : <Box sx={{ pl: 3.5 }}><Empty text={empty} /></Box>}
   </Box>;
 }
 
@@ -186,6 +187,8 @@ function gapIcon(reason: DataGapReason) {
   if (reason === "MISSING_FINANCIAL_STATEMENTS") return <DescriptionOutlined />;
   return <HistoryToggleOffOutlined />;
 }
+
+function dateAfterDays(days: number) { const value = new Date(); value.setDate(value.getDate() + days); return value.toISOString().slice(0, 10); }
 
 function isDueReview(plan: DecisionPlanListItem) {
   if (plan.isDueReview) return true;

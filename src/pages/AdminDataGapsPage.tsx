@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, LinearProgress, MenuItem, Snackbar, Stack, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
@@ -13,7 +14,8 @@ const labels: Record<DataGapReason, string> = {
 };
 
 export default function AdminDataGapsPage() {
-  const [reason, setReason] = useState<DataGapReason | "">("");
+  const [searchParams] = useSearchParams();
+  const [reason, setReason] = useState<DataGapReason | "">(() => queryReason(searchParams.get("reason")));
   const [page, setPage] = useState(0);
   const [data, setData] = useState<OpportunityDataGapPage | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,6 +75,10 @@ export default function AdminDataGapsPage() {
     <ShareDialog item={selected} onClose={() => setSelected(null)} onSaved={(message) => { setSelected(null); setToast(message); void load(); }} />
     <Snackbar open={Boolean(toast)} autoHideDuration={7000} onClose={() => setToast("")} message={toast} />
   </Box>;
+}
+
+function queryReason(value: string | null): DataGapReason | "" {
+  return value && value in labels ? value as DataGapReason : "";
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
