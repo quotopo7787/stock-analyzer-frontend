@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -17,6 +17,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { snapshotApi } from "../api/snapshotApi";
 import type { CompanySnapshotResponse } from "../types/snapshot";
 
+const AUTO_LOAD_DEDUP_MS = 1200;
+const recentAutoLoads = new Map<string, number>();
+
 export default function StockDetailPage() {
   const { code } = useParams();
   const navigate = useNavigate();
@@ -27,29 +30,25 @@ export default function StockDetailPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    if (code) {
-      setStockCode(code.toUpperCase());
-    }
-  }, [code]);
-
-  const loadSnapshot = async () => {
+  const loadSnapshotFor = useCallback(async (targetStockCode: string, targetYear: number) => {
     try {
       setLoading(true);
       setErrorMessage("");
       setSnapshot(null);
 
-      if (!stockCode.trim()) {
+      const normalizedStockCode = targetStockCode.trim().toUpperCase();
+
+      if (!normalizedStockCode) {
         setErrorMessage("Bạn cần nhập mã cổ phiếu.");
         return;
       }
 
-      if (!year || year < 2000) {
+      if (!targetYear || targetYear < 2000) {
         setErrorMessage("Năm phân tích không hợp lệ.");
         return;
       }
 
-      const data = await snapshotApi.getSnapshot(stockCode.trim().toUpperCase(), year);
+      const data = await snapshotApi.getSnapshot(normalizedStockCode, targetYear);
       setSnapshot(data);
     } catch (err) {
       console.error(err);
@@ -59,6 +58,25 @@ export default function StockDetailPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const routeStockCode = code?.trim().toUpperCase();
+    if (!routeStockCode) return;
+
+    setStockCode(routeStockCode);
+
+    const key = `${routeStockCode}:${year}`;
+    const lastLoadedAt = recentAutoLoads.get(key) ?? 0;
+    const now = Date.now();
+    if (now - lastLoadedAt < AUTO_LOAD_DEDUP_MS) return;
+    recentAutoLoads.set(key, now);
+
+    void loadSnapshotFor(routeStockCode, year);
+  }, [code, loadSnapshotFor, year]);
+
+  const loadSnapshot = () => {
+    void loadSnapshotFor(stockCode, year);
   };
 
   const formatNumber = (value?: number | null) => {
