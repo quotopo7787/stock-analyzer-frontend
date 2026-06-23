@@ -948,6 +948,9 @@ function OpportunityDetailDrawer({
               <Button variant="contained" size="small" onClick={() => onCreateThesis(detail)}>
                 Tạo hồ sơ
               </Button>
+              <Button variant="outlined" size="small" component={Link} to={`/stocks/${detail.code}`}>
+                Xem Stock Detail
+              </Button>
               <Button
                 variant="outlined"
                 size="small"

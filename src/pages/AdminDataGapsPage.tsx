@@ -32,7 +32,12 @@ import BuildIcon from "@mui/icons-material/Build";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { dataGapApi } from "../api/dataGapApi";
-import type { DataGapReason, OpportunityDataGap, OpportunityDataGapPage } from "../types/dataGaps";
+import type {
+  DataGapReason,
+  ManualFinancialStatementRequest,
+  OpportunityDataGap,
+  OpportunityDataGapPage,
+} from "../types/dataGaps";
 
 const todayIso = localTodayIso();
 
@@ -45,7 +50,7 @@ const REASON_LABELS: Record<DataGapReason, string> = {
   MISSING_FINANCIAL_STATEMENTS: "Chưa có BCTC",
 };
 
-type ActionDialogType = "share-info" | "stock-price" | null;
+type ActionDialogType = "share-info" | "stock-price" | "financial-statement" | null;
 
 export default function AdminDataGapsPage() {
   const [searchParams] = useSearchParams();
@@ -81,6 +86,11 @@ export default function AdminDataGapsPage() {
     setSelected(item);
     if (item.primaryReason === "MISSING_SHARE_INFO") {
       setDialogType("share-info");
+    } else if (
+      item.primaryReason === "MISSING_FINANCIAL_YEAR" ||
+      item.primaryReason === "MISSING_FINANCIAL_STATEMENTS"
+    ) {
+      setDialogType("financial-statement");
     } else {
       // OLD_STOCK_PRICE, FUTURE_PRICE_DATE, MISSING_RECENT_PRICE → stock price dialog
       setDialogType("stock-price");
@@ -289,6 +299,18 @@ export default function AdminDataGapsPage() {
           void load();
         }}
       />
+      {dialogType === "financial-statement" && selected && (
+        <FinancialStatementDialog
+          key={`${selected.stockCode}-${selected.primaryReason}`}
+          item={selected}
+          onClose={closeDialog}
+          onSaved={(message) => {
+            closeDialog();
+            setToast(message);
+            void load();
+          }}
+        />
+      )}
 
       <Snackbar
         open={Boolean(toast)}
@@ -333,13 +355,9 @@ function ActionButton({
 
   if (primaryReason === "MISSING_FINANCIAL_STATEMENTS" || primaryReason === "MISSING_FINANCIAL_YEAR") {
     return (
-      <Tooltip title="Chưa hỗ trợ nhập BCTC thủ công trong MVP này">
-        <span>
-          <Button size="small" disabled startIcon={<BuildIcon />}>
-            {actionLabel ?? "Nhập BCTC"}
-          </Button>
-        </span>
-      </Tooltip>
+      <Button size="small" startIcon={<AddCircleOutlineIcon />} onClick={() => onOpen(item)}>
+        {actionLabel ?? "Nhập BCTC"}
+      </Button>
     );
   }
 
@@ -628,7 +646,246 @@ function StockPriceDialog({
   );
 }
 
+// ─── Financial Statement Dialog ─────────────────────────────────────────────
+
+type FinancialField =
+  | "revenue"
+  | "netProfit"
+  | "totalAssets"
+  | "totalLiabilities"
+  | "equity"
+  | "operatingCashFlow";
+
+const financialFieldDefinitions: Array<{ key: FinancialField; label: string; allowNegative: boolean }> = [
+  { key: "revenue", label: "Doanh thu thuần", allowNegative: false },
+  { key: "netProfit", label: "Lợi nhuận sau thuế", allowNegative: true },
+  { key: "totalAssets", label: "Tổng tài sản", allowNegative: false },
+  { key: "totalLiabilities", label: "Tổng nợ phải trả", allowNegative: false },
+  { key: "equity", label: "Vốn chủ sở hữu", allowNegative: false },
+  { key: "operatingCashFlow", label: "Dòng tiền HĐKD", allowNegative: true },
+];
+
+const emptyFinancialValues = (): Record<FinancialField, string> => ({
+  revenue: "",
+  netProfit: "",
+  totalAssets: "",
+  totalLiabilities: "",
+  equity: "",
+  operatingCashFlow: "",
+});
+
+function FinancialStatementDialog({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: OpportunityDataGap;
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
+  const [year, setYear] = useState(item.missingYears?.[0] ?? 2025);
+  const [values, setValues] = useState<Record<FinancialField, string>>(emptyFinancialValues);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [sourceNote, setSourceNote] = useState("");
+  const [loadingExisting, setLoadingExisting] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const yearOptions = item.missingYears?.length ? item.missingYears : [2023, 2024, 2025];
+
+  useEffect(() => {
+    let active = true;
+    void dataGapApi.getFinancialStatement(item.stockCode, year)
+      .then((existing) => {
+        if (!active) return;
+        const nextValues = emptyFinancialValues();
+        for (const field of financialFieldDefinitions) {
+          const currentValue = existing.current?.[field.key];
+          nextValues[field.key] = currentValue === null || currentValue === undefined
+            ? ""
+            : String(currentValue);
+        }
+        setValues(nextValues);
+        setMissingFields(existing.missingFields ?? []);
+        setError("");
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error(err);
+        setValues(emptyFinancialValues());
+        setMissingFields([]);
+        setError(apiErrorMessage(err, "Không tải được BCTC hiện tại."));
+      })
+      .finally(() => {
+        if (active) setLoadingExisting(false);
+      });
+    return () => { active = false; };
+  }, [item.stockCode, year]);
+
+  const validationMessage = financialValidationMessage(year, values, sourceNote);
+
+  const changeYear = (nextYear: number) => {
+    setLoadingExisting(true);
+    setValues(emptyFinancialValues());
+    setMissingFields([]);
+    setYear(nextYear);
+  };
+
+  const save = async () => {
+    if (validationMessage) {
+      setError(validationMessage || "Dữ liệu chưa hợp lệ.");
+      return;
+    }
+    try {
+      setSaving(true);
+      setError("");
+      const request: ManualFinancialStatementRequest = {
+        stockCode: item.stockCode,
+        year,
+        sourceNote: sourceNote.trim(),
+      };
+      for (const field of financialFieldDefinitions) {
+        const raw = values[field.key].trim();
+        if (raw !== "") request[field.key] = Number(raw);
+      }
+      const result = await dataGapApi.saveFinancialStatement(request);
+      const actionMessage = result.action === "INSERTED"
+        ? `Đã thêm BCTC ${result.stockCode} ${result.year}`
+        : result.action === "UPDATED"
+          ? `Đã cập nhật BCTC ${result.stockCode} ${result.year}`
+          : "Không có thay đổi dữ liệu";
+      const eligibleMessage = `Eligible: ${result.eligibleStockCountBefore} → ${result.eligibleStockCountAfter}`;
+      const warningMessage = result.warnings?.length
+        ? ` · Cảnh báo: ${result.warnings.join("; ")}`
+        : "";
+      onSaved(`${actionMessage}. ${eligibleMessage}${warningMessage}`);
+    } catch (err) {
+      console.error(err);
+      setError(apiErrorMessage(err, "Không lưu được BCTC. Hãy kiểm tra dữ liệu và nguồn."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
+      <DialogTitle>Nhập báo cáo tài chính — {item?.stockCode}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          {missingFields.length > 0 && (
+            <Alert severity="info">
+              Các trường đang thiếu: {missingFields.join(", ")}
+            </Alert>
+          )}
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField label="Mã cổ phiếu" value={item.stockCode} disabled fullWidth />
+            <TextField label="Tên công ty" value={item.companyName} disabled fullWidth />
+            <TextField
+              select
+              label="Năm"
+              value={year}
+              onChange={(event) => changeYear(Number(event.target.value))}
+              disabled={loadingExisting || saving}
+              fullWidth
+            >
+              {yearOptions.map((option) => (
+                <MenuItem key={option} value={option}>{option}</MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+
+          {loadingExisting ? (
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", py: 2 }}>
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">Đang tải BCTC hiện tại...</Typography>
+            </Stack>
+          ) : (
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2,minmax(0,1fr))" }, gap: 2 }}>
+              {financialFieldDefinitions.map((field) => (
+                <TextField
+                  key={field.key}
+                  label={`${field.label} (VND)`}
+                  type="number"
+                  value={values[field.key]}
+                  onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                  error={!field.allowNegative && values[field.key] !== "" && Number(values[field.key]) < 0}
+                  helperText={moneyHelper(values[field.key], field.allowNegative)}
+                  slotProps={{ htmlInput: { step: "1", min: field.allowNegative ? undefined : "0" } }}
+                />
+              ))}
+            </Box>
+          )}
+
+          <Alert severity="info">Nhập số tiền theo VND, không nhập theo nghìn đồng.</Alert>
+          <TextField
+            label="Ghi chú nguồn *"
+            value={sourceNote}
+            onChange={(event) => setSourceNote(event.target.value)}
+            multiline
+            minRows={3}
+            required
+            helperText="Ví dụ: BCTC kiểm toán 2025 / Báo cáo thường niên / Vietstock / website công ty"
+          />
+          {validationMessage && sourceNote.trim() && (
+            <Typography variant="caption" color="error.main">{validationMessage}</Typography>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={saving}>Hủy</Button>
+        <Button
+          variant="contained"
+          onClick={() => void save()}
+          disabled={saving || loadingExisting || Boolean(validationMessage)}
+        >
+          {saving ? "Đang lưu..." : "Lưu BCTC"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+function financialValidationMessage(
+  year: number,
+  values: Record<FinancialField, string>,
+  sourceNote: string
+) {
+  if (!year || year > new Date().getFullYear()) return "Năm BCTC không hợp lệ.";
+  if (!sourceNote.trim()) return "Ghi chú nguồn là bắt buộc.";
+  if (!financialFieldDefinitions.some((field) => values[field.key].trim() !== "")) {
+    return "Phải nhập ít nhất một chỉ tiêu tài chính.";
+  }
+  for (const field of financialFieldDefinitions) {
+    const raw = values[field.key].trim();
+    if (raw === "") continue;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return `${field.label} không hợp lệ.`;
+    if (!field.allowNegative && parsed < 0) return `${field.label} không được âm.`;
+  }
+  return "";
+}
+
+function moneyHelper(value: string, allowNegative: boolean) {
+  if (!value.trim()) return allowNegative ? "Có thể nhập số âm · Đơn vị VND" : "Đơn vị VND";
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return "Giá trị không hợp lệ";
+  return `${parsed.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} VND${allowNegative ? " · Cho phép số âm" : ""}`;
+}
+
+function apiErrorMessage(error: unknown, fallback: string) {
+  if (!axios.isAxiosError(error)) return fallback;
+  const data = error.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  if (data && typeof data === "object") {
+    if ("message" in data && data.message) return String(data.message);
+    if ("error" in data && data.error) return String(data.error);
+  }
+  if (error.response?.status === 404) return "Không tìm thấy mã cổ phiếu.";
+  return fallback;
+}
 
 function queryReason(value: string | null): DataGapReason | "" {
   return value && value in REASON_LABELS ? (value as DataGapReason) : "";

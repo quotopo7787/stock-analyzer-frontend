@@ -118,9 +118,18 @@ export default function StockDetailPage() {
           </Typography>
         </Box>
 
-        <Button variant="outlined" onClick={() => navigate("/stocks")}>
-          Quay lại danh sách
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate(`/valuation-scenarios?stockCode=${encodeURIComponent(stockCode.trim().toUpperCase())}`)}
+            disabled={!stockCode.trim()}
+          >
+            Xem định giá
+          </Button>
+          <Button variant="outlined" onClick={() => navigate("/stocks")}>
+            Quay lại danh sách
+          </Button>
+        </Stack>
       </Stack>
 
       <Card sx={{ mb: 3 }}>

@@ -59,3 +59,40 @@ export interface ManualStockPriceResult {
   becameEligible: boolean;
   dataFreshnessStatus: string;
 }
+
+export interface FinancialStatementValues {
+  revenue?: number | null;
+  netProfit?: number | null;
+  totalAssets?: number | null;
+  totalLiabilities?: number | null;
+  equity?: number | null;
+  operatingCashFlow?: number | null;
+}
+
+export interface ManualFinancialStatementCurrent {
+  stockCode: string;
+  year: number;
+  current?: FinancialStatementValues | null;
+  missingFields: string[];
+}
+
+export interface ManualFinancialStatementRequest extends FinancialStatementValues {
+  stockCode: string;
+  year: number;
+  sourceNote: string;
+}
+
+export interface ManualFinancialStatementResult {
+  stockCode: string;
+  year: number;
+  action: "INSERTED" | "UPDATED" | "NO_CHANGE";
+  oldValue?: FinancialStatementValues | null;
+  newValue: FinancialStatementValues;
+  warnings: string[];
+  affectedOpportunities: boolean;
+  eligibleStockCountBefore: number;
+  eligibleStockCountAfter: number;
+  becameEligible: boolean;
+  duplicateCount: number;
+  dataFreshnessStatus: string;
+}

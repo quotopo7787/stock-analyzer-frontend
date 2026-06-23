@@ -3,7 +3,7 @@ import {
   ListItemText, Paper, Stack, Toolbar, Typography,
 } from "@mui/material";
 import {
-  DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
+  CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
   NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ShowChart, SignalCellularAlt,
   StarBorderOutlined,
 } from "@mui/icons-material";
@@ -16,6 +16,7 @@ const navItems = [
   { label: "Hồ sơ nghiên cứu", to: "/investment-thesis", icon: <FolderOutlined /> },
   { label: "Watchlist", to: "/watchlist", icon: <StarBorderOutlined /> },
   { label: "Kế hoạch đầu tư", to: "/decision-plans", icon: <EventNoteOutlined /> },
+  { label: "Định giá", to: "/valuation-scenarios", icon: <CalculateOutlined /> },
   { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
 ];
 

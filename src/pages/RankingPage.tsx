@@ -10,6 +10,8 @@ import {
   IconButton,
   LinearProgress,
   MenuItem,
+  Paper,
+  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -26,9 +28,10 @@ import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
+import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
 import { useNavigate } from "react-router-dom";
 import { rankingApi } from "../api/rankingApi";
-import type { RankingItem } from "../types/ranking";
+import type { RankingItem, RankingMeta, RankingSnapshotStatus } from "../types/ranking";
 
 const currentYear = new Date().getFullYear();
 
@@ -41,11 +44,18 @@ export default function RankingPage() {
   const [size, setSize] = useState(20);
 
   const [items, setItems] = useState<RankingItem[]>([]);
+  const [meta, setMeta] = useState<RankingMeta>({ source: "UNKNOWN" });
+  const [snapshotStatus, setSnapshotStatus] = useState<RankingSnapshotStatus | null>(null);
+  const [statusWarning, setStatusWarning] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshingSnapshot, setRefreshingSnapshot] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [toast, setToast] = useState("");
 
   const isInvalidRange = fromYear > toYear;
-  const hasNextPage = items.length === size;
+  const hasNextPage = meta.totalElements !== undefined
+    ? (page + 1) * size < meta.totalElements
+    : items.length === size;
 
   useEffect(() => {
     loadRankings(0);
@@ -88,10 +98,20 @@ export default function RankingPage() {
       setLoading(true);
       setErrorMessage("");
 
-      const data = await rankingApi.getRankings(fromYear, toYear, targetPage, targetSize);
+      const result = await rankingApi.getRankings(fromYear, toYear, targetPage, targetSize);
 
-      setItems(data ?? []);
+      setItems(result.items);
+      setMeta(result.meta);
       setPage(targetPage);
+
+      try {
+        setSnapshotStatus(await rankingApi.getSnapshotStatus(fromYear, toYear));
+        setStatusWarning("");
+      } catch (statusError) {
+        console.warn("Không tải được trạng thái Ranking Snapshot", statusError);
+        setSnapshotStatus(null);
+        setStatusWarning("Không tải được trạng thái chi tiết của Ranking Snapshot.");
+      }
     } catch (err) {
       console.error(err);
       setErrorMessage(
@@ -140,6 +160,24 @@ export default function RankingPage() {
     loadRankings(page);
   };
 
+  const handleRefreshSnapshot = async () => {
+    if (isInvalidRange) return;
+    try {
+      setRefreshingSnapshot(true);
+      setErrorMessage("");
+      const result = await rankingApi.refreshSnapshot(fromYear, toYear);
+      setToast(
+        `Đã làm mới ${formatNumber(result.snapshotCount, 0)} mã trong ${formatNumber(result.durationMs, 0)} ms.`
+      );
+      await loadRankings(0, size);
+    } catch (err) {
+      console.error(err);
+      setErrorMessage("Không làm mới được Ranking Snapshot. Vui lòng thử lại sau.");
+    } finally {
+      setRefreshingSnapshot(false);
+    }
+  };
+
   const handleSizeChange = (nextSize: number) => {
     setSize(nextSize);
     loadRankings(0, nextSize);
@@ -177,14 +215,24 @@ export default function RankingPage() {
           </Typography>
         </Box>
 
-        <Button
-          variant="outlined"
-          startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          Tải lại
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            onClick={handleRefresh}
+            disabled={loading || refreshingSnapshot}
+          >
+            Tải lại
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={refreshingSnapshot ? <CircularProgress size={16} color="inherit" /> : <StorageOutlinedIcon />}
+            onClick={() => void handleRefreshSnapshot()}
+            disabled={loading || refreshingSnapshot || isInvalidRange}
+          >
+            Làm mới Snapshot
+          </Button>
+        </Stack>
       </Stack>
 
       <Box
@@ -271,6 +319,15 @@ export default function RankingPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <RankingStatusBar
+        meta={meta}
+        status={snapshotStatus}
+        fromYear={fromYear}
+        toYear={toYear}
+        fallbackTotal={items.length}
+        warning={statusWarning}
+      />
 
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -428,8 +485,109 @@ export default function RankingPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={6000}
+        onClose={() => setToast("")}
+        message={toast}
+      />
     </Box>
   );
+}
+
+function RankingStatusBar({
+  meta,
+  status,
+  fromYear,
+  toYear,
+  fallbackTotal,
+  warning,
+}: {
+  meta: RankingMeta;
+  status: RankingSnapshotStatus | null;
+  fromYear: number;
+  toYear: number;
+  fallbackTotal: number;
+  warning: string;
+}) {
+  const sourceLabel = meta.source === "SNAPSHOT"
+    ? "Snapshot"
+    : meta.source === "REALTIME"
+      ? "Realtime"
+      : "Không rõ";
+  const generatedAt = meta.snapshotGeneratedAt ?? status?.latestGeneratedAt;
+  const total = meta.totalElements ?? status?.snapshotCount ?? fallbackTotal;
+
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ mb: 3, p: 1.5, borderColor: meta.source === "REALTIME" ? "warning.main" : "divider" }}
+    >
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={1}
+        sx={{ alignItems: { xs: "flex-start", md: "center" }, justifyContent: "space-between" }}
+      >
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
+          <StorageOutlinedIcon color={meta.source === "REALTIME" ? "warning" : "primary"} fontSize="small" />
+          <Typography variant="body2">
+            Đang dùng <strong>{sourceLabel}</strong>
+            {" · "}Cập nhật {formatDateTime(generatedAt)}
+            {" · "}{formatInteger(total)} mã
+            {" · "}Giai đoạn {fromYear}–{toYear}
+          </Typography>
+          {status && (
+            <>
+              <Chip
+                size="small"
+                label={status.dataFreshnessStatus === "FRESH" ? "Dữ liệu mới" : status.dataFreshnessStatus}
+                color={status.dataFreshnessStatus === "FRESH" ? "success" : "warning"}
+                variant="outlined"
+              />
+              <Tooltip title="Số bản ghi trùng trong snapshot">
+                <Chip
+                  size="small"
+                  label={`Trùng: ${formatInteger(status.duplicateCount)}`}
+                  color={status.duplicateCount === 0 ? "success" : "error"}
+                  variant="outlined"
+                />
+              </Tooltip>
+            </>
+          )}
+        </Stack>
+        <Typography variant="caption" color={meta.source === "REALTIME" ? "warning.main" : "text.secondary"}>
+          {meta.source === "REALTIME"
+            ? "Đang dùng dữ liệu realtime vì snapshot chưa có hoặc chưa sẵn sàng."
+            : meta.source === "SNAPSHOT"
+              ? "Dữ liệu ranking đang dùng snapshot để tải nhanh hơn."
+              : "Không rõ nguồn dữ liệu ranking."}
+        </Typography>
+      </Stack>
+      {warning && (
+        <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 0.75 }}>
+          {warning}
+        </Typography>
+      )}
+    </Paper>
+  );
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatInteger(value?: number | null) {
+  return value === undefined || value === null ? "-" : value.toLocaleString("vi-VN");
 }
 
 function MetricCard({

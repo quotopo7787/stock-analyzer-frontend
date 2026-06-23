@@ -14,6 +14,7 @@ import DataStatusPage from "./pages/DataStatusPage";
 import AdminDataGapsPage from "./pages/AdminDataGapsPage";
 import DecisionPlansPage from "./pages/DecisionPlansPage";
 import PortfolioPage from "./pages/PortfolioPage";
+import ValuationScenariosPage from "./pages/ValuationScenariosPage";
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
           <Route path="admin/data-status" element={<DataStatusPage />} />
           <Route path="admin/data-gaps" element={<AdminDataGapsPage />} />
           <Route path="decision-plans" element={<DecisionPlansPage />} />
+          <Route path="valuation-scenarios" element={<ValuationScenariosPage />} />
           <Route path="portfolio" element={<PortfolioPage />} />
         </Route>
       </Routes>
