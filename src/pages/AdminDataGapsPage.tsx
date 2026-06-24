@@ -7,12 +7,14 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   LinearProgress,
   MenuItem,
   Snackbar,
@@ -32,12 +34,18 @@ import BuildIcon from "@mui/icons-material/Build";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { dataGapApi } from "../api/dataGapApi";
+import { vietstockImportApi } from "../api/vietstockImportApi";
 import type {
   DataGapReason,
+  FinancialStatementValues,
   ManualFinancialStatementRequest,
   OpportunityDataGap,
   OpportunityDataGapPage,
 } from "../types/dataGaps";
+import type {
+  VietstockFinancialStatementPreviewResponse,
+  VietstockImportSessionResponse,
+} from "../types/vietstockImport";
 
 const todayIso = localTodayIso();
 
@@ -50,7 +58,7 @@ const REASON_LABELS: Record<DataGapReason, string> = {
   MISSING_FINANCIAL_STATEMENTS: "Chưa có BCTC",
 };
 
-type ActionDialogType = "share-info" | "stock-price" | "financial-statement" | null;
+type ActionDialogType = "share-info" | "stock-price" | "financial-statement" | "vietstock-financial" | null;
 
 export default function AdminDataGapsPage() {
   const [searchParams] = useSearchParams();
@@ -95,6 +103,11 @@ export default function AdminDataGapsPage() {
       // OLD_STOCK_PRICE, FUTURE_PRICE_DATE, MISSING_RECENT_PRICE → stock price dialog
       setDialogType("stock-price");
     }
+  };
+
+  const openVietstockImport = (item: OpportunityDataGap) => {
+    setSelected(item);
+    setDialogType("vietstock-financial");
   };
 
   const closeDialog = () => {
@@ -242,7 +255,15 @@ export default function AdminDataGapsPage() {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <ActionButton item={item} onOpen={openAction} />
+                      <Stack direction="row" spacing={1}>
+                        <ActionButton item={item} onOpen={openAction} />
+                        {(item.primaryReason === "MISSING_FINANCIAL_YEAR" ||
+                          item.primaryReason === "MISSING_FINANCIAL_STATEMENTS") && (
+                          <Button size="small" variant="outlined" onClick={() => openVietstockImport(item)}>
+                            Lấy từ Vietstock
+                          </Button>
+                        )}
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -302,6 +323,18 @@ export default function AdminDataGapsPage() {
       {dialogType === "financial-statement" && selected && (
         <FinancialStatementDialog
           key={`${selected.stockCode}-${selected.primaryReason}`}
+          item={selected}
+          onClose={closeDialog}
+          onSaved={(message) => {
+            closeDialog();
+            setToast(message);
+            void load();
+          }}
+        />
+      )}
+      {dialogType === "vietstock-financial" && selected && (
+        <VietstockFinancialStatementDialog
+          key={`vietstock-${selected.stockCode}-${selected.primaryReason}`}
           item={selected}
           onClose={closeDialog}
           onSaved={(message) => {
@@ -848,6 +881,307 @@ function FinancialStatementDialog({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+function VietstockFinancialStatementDialog({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: OpportunityDataGap;
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
+  const [session, setSession] = useState<VietstockImportSessionResponse | null>(null);
+  const [preview, setPreview] = useState<VietstockFinancialStatementPreviewResponse | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [allowOverwrite, setAllowOverwrite] = useState(false);
+  const [pastedYear, setPastedYear] = useState(item.missingYears?.[0] ?? 2025);
+  const [pastedUnitMultiplier, setPastedUnitMultiplier] = useState(1);
+  const [pastedText, setPastedText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const years = (item.missingYears?.length ? item.missingYears : [2024, 2025]).slice(-2);
+  const importableRows = preview?.rows.filter(
+    (row) => hasExtractedFinancialValue(row.extracted) && !row.warnings.includes("UNIT_UNCERTAIN")
+  ) ?? [];
+
+  const checkSession = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      setSession(await vietstockImportApi.checkSession());
+    } catch (err) {
+      console.error(err);
+      setError(apiErrorMessage(err, "Không kiểm tra được session Vietstock."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openVietstockBrowser = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const result = await vietstockImportApi.openSession();
+      setSession(result);
+      if (result.loginUrl) {
+        window.open(result.loginUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(apiErrorMessage(err, "Khong mo duoc browser import Vietstock."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const previewData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const result = await vietstockImportApi.previewFinancialStatements({ stockCode: item.stockCode, years });
+      setPreview(result);
+      if (result.warnings.includes("LOGIN_REQUIRED")) {
+        setSession((current) => current ?? {
+          status: "LOGIN_REQUIRED",
+          warnings: ["LOGIN_REQUIRED"],
+          message: "Cần đăng nhập Vietstock trên browser import trước khi lấy dữ liệu.",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setError(apiErrorMessage(err, "Không preview được dữ liệu Vietstock."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const previewPastedData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const result = await vietstockImportApi.previewPastedFinancialStatements({
+        stockCode: item.stockCode,
+        year: pastedYear,
+        unitMultiplier: pastedUnitMultiplier,
+        rawText: pastedText,
+      });
+      setPreview(result);
+    } catch (err) {
+      console.error(err);
+      setError(apiErrorMessage(err, "Không parse được dữ liệu Vietstock đã dán."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const previewClipboardData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      if (!navigator.clipboard?.readText) {
+        setError("Trình duyệt không cho đọc clipboard. Hãy dán dữ liệu vào ô rồi bấm Preview.");
+        return;
+      }
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText.trim()) {
+        setError("Clipboard đang trống. Hãy copy bảng/dòng dữ liệu từ Vietstock trước.");
+        return;
+      }
+      setPastedText(clipboardText);
+      const result = await vietstockImportApi.previewPastedFinancialStatements({
+        stockCode: item.stockCode,
+        year: pastedYear,
+        unitMultiplier: pastedUnitMultiplier,
+        rawText: clipboardText,
+      });
+      setPreview(result);
+    } catch (err) {
+      console.error(err);
+      setError(apiErrorMessage(err, "Không đọc/parse được clipboard. Hãy dán thủ công vào ô dữ liệu."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!preview || importableRows.length === 0) return;
+    try {
+      setSaving(true);
+      setError("");
+      const result = await vietstockImportApi.confirmFinancialStatements({
+        stockCode: item.stockCode,
+        rows: importableRows.map((row) => ({ year: row.year, ...(row.extracted ?? {}) })),
+        sourceNote: `${preview.sourceNote}; user confirmed`,
+        confirm: confirmed,
+        allowOverwriteExisting: allowOverwrite,
+      });
+      const changed = result.rows.filter((row) => row.action === "INSERTED" || row.action === "UPDATED").length;
+      onSaved(`Đã import BCTC Vietstock cho ${result.stockCode}: ${changed}/${result.rows.length} dòng có thay đổi.`);
+    } catch (err) {
+      console.error(err);
+      setError(apiErrorMessage(err, "Không import được dữ liệu Vietstock."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    void checkSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.stockCode]);
+
+  return (
+    <Dialog open onClose={saving ? undefined : onClose} fullWidth maxWidth="lg">
+      <DialogTitle>Lấy BCTC từ Vietstock — {item.stockCode}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <Alert severity="info">
+            Module này chỉ hỗ trợ import có preview và user confirm. Không lưu mật khẩu/cookie Vietstock, không bypass login/paywall/CAPTCHA.
+          </Alert>
+          <Alert severity="warning">
+            Nếu Vietstock đăng nhập bằng Google, hãy mở bằng Chrome thường. Google chặn đăng nhập trong browser automation, nên không nhập Google account trong cửa sổ Playwright/Chrome for Testing.
+          </Alert>
+          {session && (
+            <Alert severity={session.status === "SESSION_OK" ? "success" : "warning"}>
+              Session: {session.status}. {session.message}
+              {session.profilePath ? ` Profile: ${session.profilePath}.` : ""}
+            </Alert>
+          )}
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+            <TextField label="Mã cổ phiếu" value={item.stockCode} disabled fullWidth />
+            <TextField label="Năm thiếu" value={years.join(", ")} disabled fullWidth />
+            <TextField label="Nguồn" value="Vietstock" disabled fullWidth />
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={() => void checkSession()} disabled={loading || saving}>
+              Kiểm tra đăng nhập
+            </Button>
+            <Button variant="contained" onClick={() => void previewData()} disabled={loading || saving}>
+              {loading ? "Đang xử lý..." : "Preview dữ liệu"}
+            </Button>
+            <Button variant="text" onClick={() => void openVietstockBrowser()} disabled={loading || saving}>
+              Mở Vietstock BCTC
+            </Button>
+          </Stack>
+          <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
+            <Stack spacing={2}>
+              <Alert severity="info">
+                Cách chắc chắn nhất: mở Vietstock bằng Chrome thường, chọn đúng mã/năm, copy các dòng BCTC rồi dán vào đây.
+                Mỗi lần dán cho một năm để tránh đoán nhầm thứ tự cột.
+              </Alert>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                <TextField
+                  select
+                  label="Năm dữ liệu dán"
+                  value={pastedYear}
+                  onChange={(event) => setPastedYear(Number(event.target.value))}
+                  fullWidth
+                >
+                  {(years.length ? years : [2024, 2025]).map((year) => (
+                    <MenuItem key={year} value={year}>{year}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="Đơn vị trên Vietstock"
+                  value={pastedUnitMultiplier}
+                  onChange={(event) => setPastedUnitMultiplier(Number(event.target.value))}
+                  fullWidth
+                >
+                  <MenuItem value={1}>Đồng</MenuItem>
+                  <MenuItem value={1000}>Nghìn đồng</MenuItem>
+                  <MenuItem value={1000000}>Triệu đồng</MenuItem>
+                  <MenuItem value={1000000000}>Tỷ đồng</MenuItem>
+                </TextField>
+              </Stack>
+              <TextField
+                label="Dán dữ liệu copy từ bảng Vietstock"
+                value={pastedText}
+                onChange={(event) => setPastedText(event.target.value)}
+                multiline
+                minRows={5}
+                fullWidth
+                placeholder={"Ví dụ dán các dòng có: Doanh thu thuần, Lợi nhuận sau thuế, Tổng tài sản, Nợ phải trả, Vốn chủ sở hữu, Lưu chuyển tiền thuần từ HĐKD"}
+              />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button
+                  variant="contained"
+                  onClick={() => void previewClipboardData()}
+                  disabled={loading || saving}
+                >
+                  Đọc clipboard & Preview
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => void previewPastedData()}
+                  disabled={loading || saving || !pastedText.trim()}
+                >
+                  Preview dữ liệu đã dán
+                </Button>
+              </Stack>
+            </Stack>
+          </Box>
+          {preview && (
+            <>
+              {preview.warnings.length > 0 && <Alert severity="warning">Warnings: {preview.warnings.join("; ")}</Alert>}
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Năm</TableCell>
+                      <TableCell>Field</TableCell>
+                      <TableCell align="right">Existing value</TableCell>
+                      <TableCell align="right">Vietstock value</TableCell>
+                      <TableCell>Action</TableCell>
+                      <TableCell>Warning</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {preview.rows.flatMap((row) =>
+                      financialFieldDefinitions.map((field) => {
+                        const existingValue = row.existing?.[field.key];
+                        const extractedValue = row.extracted?.[field.key];
+                        const willFill = extractedValue != null && (allowOverwrite || existingValue == null);
+                        return (
+                          <TableRow key={`${row.year}-${field.key}`}>
+                            <TableCell>{row.year}</TableCell>
+                            <TableCell>{field.label}</TableCell>
+                            <TableCell align="right">{formatVnd(existingValue)}</TableCell>
+                            <TableCell align="right">{formatVnd(extractedValue)}</TableCell>
+                            <TableCell>{willFill ? "Fill" : existingValue != null ? "Skip existing" : "-"}</TableCell>
+                            <TableCell>{row.warnings.join(", ") || "-"}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+          <FormControlLabel
+            control={<Checkbox checked={allowOverwrite} onChange={(event) => setAllowOverwrite(event.target.checked)} />}
+            label="Cho phép cập nhật field đã có dữ liệu"
+          />
+          <FormControlLabel
+            control={<Checkbox checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />}
+            label="Tôi đã kiểm tra và xác nhận dữ liệu lấy từ Vietstock"
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={saving}>Hủy</Button>
+        <Button variant="contained" onClick={() => void confirmImport()} disabled={saving || !confirmed || importableRows.length === 0}>
+          {saving ? "Đang import..." : "Import vào app"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 function financialValidationMessage(
   year: number,
   values: Record<FinancialField, string>,
@@ -866,6 +1200,15 @@ function financialValidationMessage(
     if (!field.allowNegative && parsed < 0) return `${field.label} không được âm.`;
   }
   return "";
+}
+
+function formatVnd(value?: number | null) {
+  return value == null ? "-" : `${value.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} VND`;
+}
+
+function hasExtractedFinancialValue(value?: FinancialStatementValues | null) {
+  if (!value) return false;
+  return financialFieldDefinitions.some((field) => value[field.key] !== null && value[field.key] !== undefined);
 }
 
 function moneyHelper(value: string, allowNegative: boolean) {

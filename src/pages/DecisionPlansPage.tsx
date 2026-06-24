@@ -4,7 +4,7 @@ import axios from "axios";
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, FormControl, InputLabel, LinearProgress, NativeSelect, Snackbar, Stack, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from "@mui/material";
 import { decisionPlanApi } from "../api/decisionPlanApi";
 import type {
@@ -32,6 +32,7 @@ export default function DecisionPlansPage() {
   const [stockCode, setStockCode] = useState("");
   const [page, setPage] = useState(0);
   const [data, setData] = useState<DecisionPlanPage | null>(null);
+  const [detailNotesById, setDetailNotesById] = useState<Record<number, string>>({});
   const [summary, setSummary] = useState({ total: 0, active: 0, due: 0, closed: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -70,6 +71,20 @@ export default function DecisionPlansPage() {
         loadSummary(),
       ]);
       setData(plans);
+      const noteEntries = await Promise.all(plans.content
+        .filter((item) => !planNote(item))
+        .map(async (item) => {
+          try {
+            const detail = await decisionPlanApi.get(item.id);
+            return [item.id, planNote(detail)] as const;
+          } catch {
+            return [item.id, ""] as const;
+          }
+        }));
+      setDetailNotesById((current) => ({
+        ...current,
+        ...Object.fromEntries(noteEntries.filter(([, note]) => Boolean(note))),
+      }));
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {
@@ -155,22 +170,46 @@ export default function DecisionPlansPage() {
       <TableContainer><Table size="small" sx={{ minWidth: 1250 }}><TableHead><TableRow>
         <TableCell>Mã</TableCell><TableCell>Tên công ty</TableCell><TableCell>Hành động</TableCell><TableCell>Trạng thái</TableCell>
         <TableCell align="right">Giá mua mục tiêu</TableCell><TableCell align="right">Fair value</TableCell>
-        <TableCell align="right">Tỷ trọng tối đa</TableCell><TableCell>Ngày review</TableCell><TableCell>Cần review</TableCell><TableCell>Hành động</TableCell>
+        <TableCell align="right">Tỷ trọng tối đa</TableCell><TableCell>Ngày review</TableCell><TableCell>Ghi chú</TableCell><TableCell>Cần review</TableCell><TableCell>Hành động</TableCell>
       </TableRow></TableHead><TableBody>
-        {data?.content.map((item) => <TableRow key={item.id} hover>
-          <TableCell><strong>{item.stockCode}</strong></TableCell><TableCell>{item.companyName}</TableCell>
+        {data?.content.map((item) => {
+          const note = planNote(item) || detailNotesById[item.id] || "";
+          const testPlan = isTestPlan(item) || isTestNote(note);
+          return <TableRow key={item.id} hover>
+          <TableCell>
+            <Stack spacing={0.5}>
+              <strong>{item.stockCode}</strong>
+              <Typography variant="caption" color="text.secondary">#{item.id}</Typography>
+            </Stack>
+          </TableCell><TableCell>{item.companyName}</TableCell>
           <TableCell><Chip size="small" label={actionLabels[item.action]} color={actionColor(item.action)} /></TableCell>
-          <TableCell><Chip size="small" label={statusLabels[item.status]} color={statusColor(item.status)} /></TableCell>
+          <TableCell>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+              <Chip size="small" label={statusLabels[item.status]} color={statusColor(item.status)} variant={item.status === "CLOSED" ? "outlined" : "filled"} />
+              {testPlan && <Chip size="small" label="TEST" color="warning" variant="outlined" />}
+            </Stack>
+          </TableCell>
           <TableCell align="right">{formatNumber(item.targetBuyPrice)}</TableCell><TableCell align="right">{formatNumber(item.fairValue)}</TableCell>
           <TableCell align="right">{item.maxPositionPercent == null ? "-" : `${formatNumber(item.maxPositionPercent)}%`}</TableCell>
-          <TableCell>{item.reviewDate || "-"}</TableCell><TableCell>{item.isDueReview ? <Chip size="small" color="warning" label="Cần review" /> : "-"}</TableCell>
+          <TableCell>{item.reviewDate || "-"}</TableCell>
+          <TableCell sx={{ maxWidth: 260 }}>
+            {note ? (
+              <Tooltip title={note}>
+                <Typography variant="body2" noWrap color={testPlan ? "warning.main" : "text.secondary"}>
+                  {note}
+                </Typography>
+              </Tooltip>
+            ) : "-"}
+          </TableCell>
+          <TableCell>{item.isDueReview ? <Chip size="small" color="warning" label="Cần review" /> : "-"}</TableCell>
           <TableCell><Stack direction="row" spacing={1}>
             <Button size="small" onClick={() => void openEdit(item)}>Xem / sửa</Button>
             {item.status === "ACTIVE" && <Button size="small" color="error" onClick={() => void closePlan(item)}>Đóng kế hoạch</Button>}
             {item.status !== "ACTIVE" && <Button size="small" color="success" onClick={() => void activatePlan(item)}>Kích hoạt lại</Button>}
           </Stack></TableCell>
-        </TableRow>)}
-        {!loading && !data?.content.length && <TableRow><TableCell colSpan={10}>Không có kế hoạch phù hợp.</TableCell></TableRow>}
+        </TableRow>;
+        })}
+        {!loading && !data?.content.length && <TableRow><TableCell colSpan={11}>Không có kế hoạch phù hợp.</TableCell></TableRow>}
       </TableBody></Table></TableContainer>
       <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end", alignItems: "center", mt: 2 }}>
         <Button disabled={!data || page === 0 || loading} onClick={() => setPage((value) => value - 1)}>Trang trước</Button>
@@ -321,6 +360,16 @@ function optionalQueryNumber(value: string | null) { if (!value) return undefine
 function enumValue<T extends string>(value: string | null, allowed: readonly T[]) { return value && allowed.includes(value as T) ? value as T : undefined; }
 function queryList(value: string | null) { if (!value) return undefined; try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : undefined; } catch { return undefined; } }
 function formatNumber(value?: number) { return value == null ? "-" : value.toLocaleString("vi-VN"); }
+function planNote(plan: DecisionPlanListItem | DecisionPlanDetail) {
+  return plan.personalNotes || plan.sourceNote || plan.notes || plan.title || "";
+}
+function isTestNote(note?: string) {
+  return Boolean(note?.toUpperCase().includes("TEST_DO_NOT_USE"));
+}
+function isTestPlan(plan: DecisionPlanListItem | DecisionPlanDetail) {
+  return [plan.personalNotes, plan.sourceNote, plan.notes, plan.title]
+    .some(isTestNote);
+}
 function actionColor(action: DecisionPlanAction): "default" | "primary" | "success" | "warning" | "error" {
   if (action === "BUY") return "success"; if (action === "SELL" || action === "AVOID") return "error";
   if (action === "WATCH" || action === "TRIM") return "warning"; if (action === "HOLD") return "primary"; return "default";

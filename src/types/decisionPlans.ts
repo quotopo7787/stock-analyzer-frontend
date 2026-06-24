@@ -7,6 +7,10 @@ export interface DecisionPlanListItem {
   companyName: string;
   action: DecisionPlanAction;
   status: DecisionPlanStatus;
+  title?: string;
+  notes?: string;
+  sourceNote?: string;
+  personalNotes?: string;
   targetBuyPrice?: number;
   fairValue?: number;
   targetSellPrice?: number;

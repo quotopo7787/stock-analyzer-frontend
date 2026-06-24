@@ -831,13 +831,22 @@ function OpportunityTable({
               <TableCell sx={{ minWidth: 144 }}>
                 <ReasonChips item={item} />
               </TableCell>
-              <TableCell sx={{ minWidth: 96 }}>
-                <Tooltip title={`Dữ liệu: ${shortConfidenceLevel(item.dataConfidenceLevel)} · Kết luận: ${shortConfidenceLevel(item.conclusionConfidenceLevel)}`}>
-                  <Chip
-                    size="small"
-                    label={shortConfidenceLevel(item.conclusionConfidenceLevel)}
-                    color={confidenceColor(item.conclusionConfidenceLevel)}
-                  />
+              <TableCell sx={{ minWidth: 100 }}>
+                <Tooltip title={`Dữ liệu: ${item.dataConfidenceScore ? Math.round(item.dataConfidenceScore) : "?"}/100 (${confidenceLevelLabel(item.dataConfidenceLevel)}) · Kết luận: ${shortConfidenceLevel(item.conclusionConfidenceLevel)}`}>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+                    <Chip
+                      size="small"
+                      label={item.dataConfidenceScore ? `${Math.round(item.dataConfidenceScore)}` : "?"}
+                      color={dataConfidenceColor(item.dataConfidenceLevel)}
+                      variant="outlined"
+                      sx={{ fontWeight: 700, fontSize: "0.7rem" }}
+                    />
+                    <Chip
+                      size="small"
+                      label={shortConfidenceLevel(item.conclusionConfidenceLevel)}
+                      color={confidenceColor(item.conclusionConfidenceLevel)}
+                    />
+                  </Stack>
                 </Tooltip>
               </TableCell>
               <TableCell sx={{ minWidth: 126 }}>
@@ -954,6 +963,15 @@ function OpportunityDetailDrawer({
               <Button
                 variant="outlined"
                 size="small"
+                component={Link}
+                to={`/valuation-scenarios?stockCode=${encodeURIComponent(detail.code)}`}
+                disabled={!detail.code}
+              >
+                Xem định giá
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
                 disabled={Boolean(actionLoading)}
                 onClick={() => onAddWatchlist(detail)}
               >
@@ -1024,14 +1042,72 @@ function OpportunityDetailDrawer({
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
-                  Độ tin cậy & mức sẵn sàng
+                  Độ tin cậy dữ liệu
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5, mb: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                      Điểm tin cậy
+                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Chip
+                        label={detail.dataConfidenceScore ? `${Math.round(detail.dataConfidenceScore)}/100` : "Chưa có"}
+                        size="small"
+                        color={dataConfidenceColor(detail.dataConfidenceLevel)}
+                        sx={{ fontWeight: 700 }}
+                      />
+                      <Typography variant="body2" color={dataConfidenceColor(detail.dataConfidenceLevel)}>
+                        {confidenceLevelLabel(detail.dataConfidenceLevel)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                      Mục đích
+                    </Typography>
+                    <Typography variant="body2">
+                      Đánh giá mức độ nên tin vào các số liệu, không phải chất lượng doanh nghiệp
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {detail.dataConfidenceWarnings && detail.dataConfidenceWarnings.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                      Cảnh báo dữ liệu
+                    </Typography>
+                    <Stack spacing={0.75}>
+                      {detail.dataConfidenceWarnings.map((warning) => (
+                        <Alert key={warning} severity="warning" sx={{ py: 0.75, px: 1, fontSize: "0.85rem" }}>
+                          {dataConfidenceWarningLabel(warning)}
+                        </Alert>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {(!detail.dataConfidenceWarnings || detail.dataConfidenceWarnings.length === 0) && (
+                  <Alert severity="success" sx={{ mb: 2, py: 0.75, px: 1, fontSize: "0.85rem" }}>
+                    Chưa phát hiện cảnh báo dữ liệu lớn.
+                  </Alert>
+                )}
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+                  Mức sẵn sàng
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
-                  <MetricLine label="Độ tin cậy dữ liệu" value={confidenceLevelLabel(detail.dataConfidenceLevel)} />
                   <MetricLine label="Độ tin cậy kết luận" value={confidenceLevelLabel(detail.conclusionConfidenceLevel)} />
                   <MetricLine label="Mức nghiên cứu" value={readinessLabel(detail.researchReadiness ?? "")} />
                   <MetricLine label="Khả năng giao dịch" value={executionLabel(detail.executionReadiness ?? "")} />
                 </Box>
+
+                {detail.dataConfidenceLevel === "LOW" || detail.dataConfidenceLevel === "VERY_LOW" ? (
+                  <Alert severity="warning" sx={{ mt: 2, py: 0.75, px: 1, fontSize: "0.85rem" }}>
+                    Không nên dùng riêng điểm cơ hội để ra quyết định khi độ tin cậy dữ liệu thấp.
+                  </Alert>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -1472,8 +1548,45 @@ function confidenceLevelLabel(value?: string | null) {
     HIGH: "Cao",
     MEDIUM: "Trung bình",
     LOW: "Thấp",
+    VERY_LOW: "Rất thấp",
   };
   return value ? labels[value] ?? value : "-";
+}
+
+function dataConfidenceColor(value?: string | null): BadgeColor {
+  switch (value) {
+    case "HIGH":
+      return "success";
+    case "MEDIUM":
+      return "info";
+    case "LOW":
+      return "warning";
+    case "VERY_LOW":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+function dataConfidenceWarningLabel(code: string): string {
+  const labels: Record<string, string> = {
+    PROFIT_CAGR_OUTLIER: "Tăng trưởng lợi nhuận bất thường, có thể do nền thấp hoặc biến động mạnh.",
+    PROFIT_CAGR_VOLATILE: "Tăng trưởng lợi nhuận biến động cao, cần kiểm tra chất lượng tăng trưởng.",
+    BASE_YEAR_PROFIT_LOW: "Năm gốc lợi nhuận thấp, CAGR có thể bị thổi phồng.",
+    CFO_LNST_UNRELIABLE: "CFO/LNST bất thường, chất lượng dòng tiền cần kiểm tra thêm.",
+    INDUSTRY_RULE_MISSING: "Chưa có rule ngành phù hợp, điểm ngành chỉ mang tính trung lập.",
+    DATA_CONFIDENCE_LOW: "Độ tin cậy dữ liệu thấp, không nên ra quyết định chỉ dựa trên điểm số.",
+    PE_OUT_OF_RANGE: "P/E nằm ngoài vùng thông thường, cần kiểm tra giá hoặc EPS.",
+    PB_OUT_OF_RANGE: "P/B nằm ngoài vùng thông thường, cần kiểm tra giá hoặc vốn chủ.",
+    EPS_NOT_MEANINGFUL: "EPS không có ý nghĩa do lợi nhuận thấp hoặc âm.",
+    PRICE_STALE: "Giá sử dụng đã cũ, định giá có thể không còn chính xác.",
+    PRICE_FUTURE_DATE: "Phát hiện giá tương lai, cần kiểm tra dữ liệu giá.",
+    TURNAROUND_BASE_EFFECT: "Turnaround từ lỗ sang lãi, CAGR có thể bị thổi phồng.",
+    INSUFFICIENT_FINANCIAL_COVERAGE: "Dữ liệu tài chính thiếu độ phủ đủ đầy đủ.",
+    STALE_PRICE: "Giá cũ, có thể không phản ánh điều kiện hiện tại.",
+    MISSING_SHARE_INFO: "Thiếu thông tin số lượng cổ phiếu.",
+  };
+  return labels[code] ?? code;
 }
 
 function opportunityTypeLabel(value?: string | null) {

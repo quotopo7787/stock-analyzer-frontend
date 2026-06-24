@@ -69,6 +69,23 @@ const statusLabels: Record<ValuationScenarioStatus, string> = {
   ARCHIVED: "Đã lưu trữ",
 };
 
+const decisionPlanActionLabels: Record<string, string> = {
+  BUY: "Mua",
+  WATCH: "Theo dõi",
+  HOLD: "Nắm giữ",
+  TRIM: "Giảm tỷ trọng",
+  SELL: "Bán",
+  AVOID: "Tránh",
+};
+
+const decisionPlanStatusLabels: Record<string, string> = {
+  DRAFT: "Nháp",
+  WATCH: "Theo dõi",
+  ACTIVE: "Đang dùng",
+  CLOSED: "Đã đóng",
+  ARCHIVED: "Đã lưu trữ",
+};
+
 export default function ValuationScenariosPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stockInput, setStockInput] = useState(searchParams.get("stockCode")?.toUpperCase() ?? "");
@@ -615,6 +632,7 @@ function ApplyToDecisionPlanDialog({
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<DecisionPlanDetail | null>(null);
   const [flags, setFlags] = useState<ApplyFlags>({ fairValue: false, targetBuyPrice: false, targetSellPrice: false });
+  const [confirmedTarget, setConfirmedTarget] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -630,6 +648,7 @@ function ApplyToDecisionPlanDialog({
         setPlans([]);
         setSelectedPlanId("");
         setSelectedPlan(null);
+        setConfirmedTarget(false);
         const [scenarioDetail, planPage] = await Promise.all([
           valuationScenarioApi.get(item.id),
           decisionPlanApi.list({ stockCode: item.stockCode, page: 0, size: 100 }),
@@ -664,6 +683,7 @@ function ApplyToDecisionPlanDialog({
   const changeSelectedPlan = async (id: string) => {
     setSelectedPlanId(id);
     setSelectedPlan(null);
+    setConfirmedTarget(false);
     setError("");
     if (!id) return;
     try {
@@ -680,6 +700,10 @@ function ApplyToDecisionPlanDialog({
     }
     if (!flags.fairValue && !flags.targetBuyPrice && !flags.targetSellPrice) {
       setError("Cần chọn ít nhất một trường giá để áp dụng.");
+      return;
+    }
+    if (!confirmedTarget) {
+      setError("Bạn cần xác nhận đã kiểm tra đúng Decision Plan cần cập nhật.");
       return;
     }
     try {
@@ -701,6 +725,11 @@ function ApplyToDecisionPlanDialog({
   };
 
   const open = Boolean(item);
+  const selectedPlanStatus = selectedPlan?.status as string | undefined;
+  const selectedPlanNote = decisionPlanNote(selectedPlan);
+  const selectedPlanIsTest = isTestDecisionPlan(selectedPlan);
+  const selectedPlanIsActive = selectedPlanStatus === "ACTIVE";
+  const selectedPlanIsClosedOrArchived = selectedPlanStatus === "CLOSED" || selectedPlanStatus === "ARCHIVED";
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
       <DialogTitle>Áp dụng định giá vào Decision Plan</DialogTitle>
@@ -710,7 +739,7 @@ function ApplyToDecisionPlanDialog({
           {error && <Alert severity="error">{error}</Alert>}
 
           <Alert severity="info">
-            Thao tác này chỉ cập nhật các mức giá trong Decision Plan, không thay đổi khuyến nghị mua/bán.
+            Thao tác này chỉ cập nhật fair value, giá mua mục tiêu và/hoặc giá bán mục tiêu. Nó không thay đổi khuyến nghị mua/bán, action, status hay portfolio.
           </Alert>
 
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
@@ -729,10 +758,41 @@ function ApplyToDecisionPlanDialog({
           >
             {plans.map((plan) => (
               <MenuItem key={plan.id} value={String(plan.id)}>
-                #{plan.id} · {plan.stockCode} · {plan.action} · {plan.status}
+                #{plan.id} · {plan.stockCode} · {decisionPlanActionLabels[plan.action] ?? plan.action} · {decisionPlanStatusLabels[plan.status] ?? plan.status}
               </MenuItem>
             ))}
           </TextField>
+
+          {selectedPlan && (
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: selectedPlanIsTest ? "#fff8e1" : "#f8fbff" }}>
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                  <Typography sx={{ fontWeight: 700 }}>
+                    Target Decision Plan #{selectedPlan.id} · {selectedPlan.stockCode}
+                  </Typography>
+                  <Chip size="small" label={decisionPlanActionLabels[selectedPlan.action] ?? selectedPlan.action} color="primary" variant="outlined" />
+                  <Chip size="small" label={decisionPlanStatusLabels[selectedPlanStatus ?? ""] ?? selectedPlanStatus} color={selectedPlanIsActive ? "success" : "default"} />
+                  {selectedPlanIsTest && <Chip size="small" label="TEST PLAN" color="warning" variant="outlined" />}
+                </Stack>
+                {selectedPlanNote && (
+                  <Typography variant="body2" color="text.secondary" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    Ghi chú: {selectedPlanNote}
+                  </Typography>
+                )}
+              </Stack>
+            </Paper>
+          )}
+
+          {selectedPlanIsActive && (
+            <Alert severity="warning">
+              Bạn đang áp dụng vào Decision Plan đang hoạt động. Hãy kiểm tra kỹ trước khi xác nhận.
+            </Alert>
+          )}
+          {selectedPlanIsClosedOrArchived && (
+            <Alert severity="warning">
+              Plan này đã đóng/lưu trữ. Chỉ áp dụng nếu bạn có chủ đích test hoặc cập nhật lịch sử.
+            </Alert>
+          )}
 
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
@@ -769,11 +829,22 @@ function ApplyToDecisionPlanDialog({
               </TableBody>
             </Table>
           </TableContainer>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={confirmedTarget}
+                onChange={(event) => setConfirmedTarget(event.target.checked)}
+                disabled={saving || loading || !selectedPlanId}
+              />
+            }
+            label="Tôi đã kiểm tra đúng Decision Plan cần cập nhật"
+          />
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={saving}>Hủy</Button>
-        <Button variant="contained" onClick={() => void apply()} disabled={saving || loading || !selectedPlanId}>
+        <Button variant="contained" onClick={() => void apply()} disabled={saving || loading || !selectedPlanId || !confirmedTarget}>
           {saving ? <CircularProgress size={22} /> : "Áp dụng"}
         </Button>
       </DialogActions>
@@ -890,6 +961,15 @@ function formatVndPerShare(value?: number) {
   return value == null || Number.isNaN(value)
     ? "-"
     : `${value.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} đ/cp`;
+}
+
+function decisionPlanNote(plan?: DecisionPlanDetail | null) {
+  return plan?.personalNotes || plan?.sourceNote || plan?.notes || plan?.title || "";
+}
+
+function isTestDecisionPlan(plan?: DecisionPlanDetail | null) {
+  return [plan?.personalNotes, plan?.sourceNote, plan?.notes, plan?.title]
+    .some((value) => value?.toUpperCase().includes("TEST_DO_NOT_USE"));
 }
 
 function formatPercent(value?: number) {

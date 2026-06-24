@@ -3,7 +3,7 @@ import {
   ListItemText, Paper, Stack, Toolbar, Typography,
 } from "@mui/material";
 import {
-  CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
+  AccountBalanceWalletOutlined, CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
   NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ShowChart, SignalCellularAlt,
   StarBorderOutlined,
 } from "@mui/icons-material";
@@ -18,6 +18,7 @@ const navItems = [
   { label: "Kế hoạch đầu tư", to: "/decision-plans", icon: <EventNoteOutlined /> },
   { label: "Định giá", to: "/valuation-scenarios", icon: <CalculateOutlined /> },
   { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
+  { label: "Phân bổ vốn", to: "/portfolio-allocation", icon: <AccountBalanceWalletOutlined /> },
 ];
 
 export default function AppLayout() {
@@ -44,7 +45,7 @@ export default function AppLayout() {
       <Box sx={{ display: "flex", flexDirection: "column", flex: 1, p: 1.5 }}>
         <List sx={{ pt: 1 }}>
           {navItems.map((item) => {
-            const active = item.to === "/" ? location.pathname === item.to : location.pathname.startsWith(item.to);
+            const active = item.to === "/" ? location.pathname === item.to : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
             return <ListItemButton key={item.to} component={Link} to={item.to} selected={active} sx={{ borderRadius: 1.5, mb: 0.6, minHeight: 50, px: 1.5, "&.Mui-selected": { bgcolor: "#eaf3ff", color: "primary.dark" }, "&.Mui-selected:hover": { bgcolor: "#e3efff" } }}>
               <ListItemIcon sx={{ minWidth: 42, color: active ? "primary.main" : "#5d6a7e" }}>{item.icon}</ListItemIcon>
               <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: active ? 700 : 500, fontSize: 14 } } }} />

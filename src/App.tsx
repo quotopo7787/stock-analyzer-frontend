@@ -14,6 +14,7 @@ import DataStatusPage from "./pages/DataStatusPage";
 import AdminDataGapsPage from "./pages/AdminDataGapsPage";
 import DecisionPlansPage from "./pages/DecisionPlansPage";
 import PortfolioPage from "./pages/PortfolioPage";
+import PortfolioAllocationPage from "./pages/PortfolioAllocationPage";
 import ValuationScenariosPage from "./pages/ValuationScenariosPage";
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
           <Route path="decision-plans" element={<DecisionPlansPage />} />
           <Route path="valuation-scenarios" element={<ValuationScenariosPage />} />
           <Route path="portfolio" element={<PortfolioPage />} />
+          <Route path="portfolio-allocation" element={<PortfolioAllocationPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

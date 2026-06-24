@@ -21,6 +21,26 @@ export type DecisionReasonCode =
 
 export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
 
+export type DataConfidenceLevel = "HIGH" | "MEDIUM" | "LOW" | "VERY_LOW";
+
+export type DataConfidenceWarning =
+  | "PROFIT_CAGR_OUTLIER"
+  | "PROFIT_CAGR_VOLATILE"
+  | "BASE_YEAR_PROFIT_LOW"
+  | "CFO_LNST_UNRELIABLE"
+  | "INDUSTRY_RULE_MISSING"
+  | "DATA_CONFIDENCE_LOW"
+  | "INSUFFICIENT_FINANCIAL_COVERAGE"
+  | "STALE_PRICE"
+  | "MISSING_SHARE_INFO"
+  | "PE_OUT_OF_RANGE"
+  | "PB_OUT_OF_RANGE"
+  | "EPS_NOT_MEANINGFUL"
+  | "PRICE_STALE"
+  | "PRICE_FUTURE_DATE"
+  | "TURNAROUND_BASE_EFFECT"
+  | string;
+
 export type ResearchReadiness =
   | "READY_FOR_RESEARCH"
   | "PRELIMINARY_ONLY"
@@ -174,8 +194,20 @@ export interface OpportunitySummaryItem {
   mainRisks?: string[];
   dataQualityWarnings?: string[];
   dataCompletenessScore?: number | null;
-  dataConfidenceLevel?: ConfidenceLevel | string | null;
+  dataConfidenceScore?: number | null;
+  dataConfidenceLevel?: DataConfidenceLevel | string | null;
   dataConfidenceLabel?: string | null;
+  dataConfidenceWarnings?: DataConfidenceWarning[];
+  // Score breakdown for clarity
+  businessQualityScore?: number | null;
+  businessQualityLabel?: string | null;
+  valuationAttractivenessScore?: number | null;
+  valuationLabel?: string | null;
+  riskPenaltyScore?: number | null;
+  finalInterpretation?: string | null;
+  businessQualitySummary?: string | null;
+  valuationSummary?: string | null;
+  finalDecisionSummary?: string | null;
   conclusionConfidenceLevel?: ConfidenceLevel | string | null;
   conclusionConfidenceLabel?: string | null;
   researchReadiness?: ResearchReadiness | string | null;
