@@ -208,6 +208,11 @@ export interface OpportunitySummaryItem {
   businessQualitySummary?: string | null;
   valuationSummary?: string | null;
   finalDecisionSummary?: string | null;
+  // Explanation fields for Task 5 QA
+  oneLineVerdict?: string | null;
+  explanationBullets?: string[];
+  watchConditions?: string[];
+  cautionMessage?: string | null;
   conclusionConfidenceLevel?: ConfidenceLevel | string | null;
   conclusionConfidenceLabel?: string | null;
   researchReadiness?: ResearchReadiness | string | null;

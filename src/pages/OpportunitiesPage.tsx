@@ -1111,10 +1111,133 @@ function OpportunityDetailDrawer({
               </CardContent>
             </Card>
 
+            {detail.cautionMessage && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {detail.cautionMessage}
+              </Alert>
+            )}
+
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Giải thích quyết định
+                </Typography>
+
+                {detail.oneLineVerdict && (
+                  <Alert severity="info" icon={false} sx={{ mb: 1.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {detail.oneLineVerdict}
+                    </Typography>
+                  </Alert>
+                )}
+
+                {detail.explanationBullets && detail.explanationBullets.length > 0 && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
+                      Vì sao:
+                    </Typography>
+                    <ul style={{ margin: "0.5rem 0 0 1rem", paddingLeft: 0 }}>
+                      {detail.explanationBullets.map((bullet, idx) => (
+                        <li key={idx} style={{ marginBottom: "0.25rem" }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {bullet}
+                          </Typography>
+                        </li>
+                      ))}
+                    </ul>
+                  </Box>
+                )}
+
+                {detail.watchConditions && detail.watchConditions.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
+                      Cần theo dõi:
+                    </Typography>
+                    <ul style={{ margin: "0.5rem 0 0 1rem", paddingLeft: 0 }}>
+                      {detail.watchConditions.map((condition, idx) => (
+                        <li key={idx} style={{ marginBottom: "0.25rem" }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {condition}
+                          </Typography>
+                        </li>
+                      ))}
+                    </ul>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Tách lớp phân tích
+                </Typography>
+
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+                  "Doanh nghiệp tốt không đồng nghĩa giá hiện tại hấp dẫn. Giá rẻ không đồng nghĩa đủ an toàn nếu chất lượng/dữ liệu yếu."
+                </Typography>
+
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1.5, mb: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Chất lượng doanh nghiệp</Typography>
+                    <Stack direction="row" spacing={0.75} sx={{ mt: 0.5, alignItems: "center", flexWrap: "wrap" }}>
+                      <Chip
+                        label={formatNumber(detail.businessQualityScore)}
+                        color={businessQualityColor(detail.businessQualityLabel)}
+                        size="small"
+                        sx={{ fontWeight: 700 }}
+                      />
+                      <Typography variant="body2" sx={{ fontSize: "0.9rem" }}>
+                        {businessQualityLabel(detail.businessQualityLabel)}
+                      </Typography>
+                    </Stack>
+                    {detail.businessQualitySummary && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, lineHeight: 1.4 }}>
+                        {detail.businessQualitySummary}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Định giá</Typography>
+                    <Stack direction="row" spacing={0.75} sx={{ mt: 0.5, alignItems: "center", flexWrap: "wrap" }}>
+                      <Chip
+                        label={formatNumber(detail.valuationAttractivenessScore)}
+                        color={valuationColor(detail.valuationLabel)}
+                        size="small"
+                        sx={{ fontWeight: 700 }}
+                      />
+                      <Typography variant="body2" sx={{ fontSize: "0.9rem" }}>
+                        {valuationLabelDisplay(detail.valuationLabel)}
+                      </Typography>
+                    </Stack>
+                    {detail.valuationSummary && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, lineHeight: 1.4 }}>
+                        {detail.valuationSummary}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                {detail.finalDecisionSummary && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                      Kết luận
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0, lineHeight: 1.6 }}>
+                      {detail.finalDecisionSummary}
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
-                  Định giá
+                  Định giá chi tiết
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
                   <MetricLine label="Giá" value={`${formatNumber(detail.latestPrice)}k`} />
@@ -1566,6 +1689,44 @@ function dataConfidenceColor(value?: string | null): BadgeColor {
     default:
       return "default";
   }
+}
+
+function businessQualityLabel(label?: string | null): string {
+  const labels: Record<string, string> = {
+    EXCELLENT_BUSINESS: "Doanh nghiệp xuất sắc",
+    GOOD_BUSINESS: "Doanh nghiệp tốt",
+    AVERAGE_BUSINESS: "Doanh nghiệp bình thường",
+    WEAK_BUSINESS: "Doanh nghiệp yếu",
+    INSUFFICIENT_DATA: "Dữ liệu chưa đủ",
+  };
+  return label ? labels[label] ?? label : "-";
+}
+
+function valuationLabelDisplay(label?: string | null): string {
+  const labels: Record<string, string> = {
+    CHEAP: "Giá rẻ",
+    FAIR: "Giá hợp lý",
+    EXPENSIVE: "Giá đắt",
+    OVERVALUED: "Giá quá cao",
+    INSUFFICIENT_DATA: "Dữ liệu chưa đủ",
+  };
+  return label ? labels[label] ?? label : "-";
+}
+
+function businessQualityColor(label?: string | null): BadgeColor {
+  if (!label) return "default";
+  if (label.includes("EXCELLENT") || label.includes("GOOD")) return "success";
+  if (label.includes("AVERAGE")) return "warning";
+  return "error";
+}
+
+function valuationColor(label?: string | null): BadgeColor {
+  if (!label) return "default";
+  if (label === "CHEAP") return "success";
+  if (label === "FAIR") return "info";
+  if (label === "EXPENSIVE") return "warning";
+  if (label === "OVERVALUED") return "error";
+  return "default";
 }
 
 function dataConfidenceWarningLabel(code: string): string {
