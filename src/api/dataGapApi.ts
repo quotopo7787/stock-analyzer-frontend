@@ -6,6 +6,8 @@ import type {
   ManualFinancialStatementResult,
   ManualShareInfoResult,
   ManualStockPriceResult,
+  DataCoveragePriorityLevel,
+  DataCoveragePriorityQueue,
   OpportunityDataGapPage,
 } from "../types/dataGaps";
 
@@ -21,6 +23,29 @@ export const dataGapApi = {
           toYear: 2025,
           ...params,
           reason: params.reason || undefined,
+        },
+      }
+    );
+    return response.data;
+  },
+
+  async getPriorityQueue(params: {
+    priority?: DataCoveragePriorityLevel | "";
+    source?: string;
+    search?: string;
+    limit?: number;
+  }) {
+    const response = await dataGapClient.get<DataCoveragePriorityQueue>(
+      "/api/admin/data-gaps/priority-queue",
+      {
+        params: {
+          fromYear: 2023,
+          toYear: 2025,
+          recentPriceDays: 30,
+          limit: params.limit ?? 50,
+          priority: params.priority || undefined,
+          source: params.source || "ALL",
+          search: params.search || undefined,
         },
       }
     );

@@ -37,6 +37,9 @@ import { dataGapApi } from "../api/dataGapApi";
 import { vietstockImportApi } from "../api/vietstockImportApi";
 import type {
   DataGapReason,
+  DataCoveragePriorityItem,
+  DataCoveragePriorityLevel,
+  DataCoveragePriorityQueue,
   FinancialStatementValues,
   ManualFinancialStatementRequest,
   OpportunityDataGap,
@@ -58,6 +61,22 @@ const REASON_LABELS: Record<DataGapReason, string> = {
   MISSING_FINANCIAL_STATEMENTS: "Chưa có BCTC",
 };
 
+const PRIORITY_LABELS: Record<DataCoveragePriorityLevel, string> = {
+  P0: "Khẩn cấp",
+  P1: "Cao",
+  P2: "Trung bình",
+  P3: "Thấp",
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  MANUAL_FORM: "Nhập tay nhanh",
+  EXCEL_IMPORT: "Nhập từ Excel",
+  PRICE_UPDATE: "Cập nhật giá",
+  SHARE_INFO_UPDATE: "Cập nhật số cổ phiếu",
+  COMPANY_PROFILE_UPDATE: "Cập nhật hồ sơ ngành",
+  REVIEW_SOURCE: "Kiểm tra nguồn dữ liệu",
+};
+
 type ActionDialogType = "share-info" | "stock-price" | "financial-statement" | "vietstock-financial" | null;
 
 export default function AdminDataGapsPage() {
@@ -72,6 +91,12 @@ export default function AdminDataGapsPage() {
   const [selected, setSelected] = useState<OpportunityDataGap | null>(null);
   const [dialogType, setDialogType] = useState<ActionDialogType>(null);
   const [toast, setToast] = useState("");
+  const [priorityQueue, setPriorityQueue] = useState<DataCoveragePriorityQueue | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<DataCoveragePriorityLevel | "">("");
+  const [prioritySource, setPrioritySource] = useState("ALL");
+  const [prioritySearch, setPrioritySearch] = useState("");
+  const [priorityLoading, setPriorityLoading] = useState(false);
+  const [priorityError, setPriorityError] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +114,28 @@ export default function AdminDataGapsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadPriorityQueue = useCallback(async () => {
+    try {
+      setPriorityLoading(true);
+      setPriorityError("");
+      setPriorityQueue(await dataGapApi.getPriorityQueue({
+        priority: priorityFilter,
+        source: prioritySource,
+        search: prioritySearch.trim(),
+        limit: 50,
+      }));
+    } catch (err) {
+      console.error(err);
+      setPriorityError("Không tải được hàng đợi ưu tiên bổ sung dữ liệu.");
+    } finally {
+      setPriorityLoading(false);
+    }
+  }, [priorityFilter, prioritySearch, prioritySource]);
+
+  useEffect(() => {
+    void loadPriorityQueue();
+  }, [loadPriorityQueue]);
 
   const openAction = (item: OpportunityDataGap) => {
     setSelected(item);
@@ -151,6 +198,85 @@ export default function AdminDataGapsPage() {
 
       {loading && <LinearProgress sx={{ mb: 2 }} />}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {priorityLoading && <LinearProgress sx={{ mb: 2 }} />}
+      {priorityError && <Alert severity="warning" sx={{ mb: 2 }}>{priorityError}</Alert>}
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            sx={{ justifyContent: "space-between", alignItems: { md: "center" }, mb: 2 }}
+          >
+            <Box>
+              <Typography variant="h6">Ưu tiên bổ sung dữ liệu</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Xếp hàng các mã thiếu dữ liệu theo ảnh hưởng tới portfolio, watchlist, decision plan, opportunity và valuation.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={priorityLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+              onClick={() => void loadPriorityQueue()}
+              disabled={priorityLoading}
+            >
+              Tải lại queue
+            </Button>
+          </Stack>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+              gap: 1.5,
+              mb: 2,
+            }}
+          >
+            <PriorityMetric label="P0 Khẩn cấp" value={priorityQueue?.p0Count ?? 0} tone="error" />
+            <PriorityMetric label="P1 Cao" value={priorityQueue?.p1Count ?? 0} tone="warning" />
+            <PriorityMetric label="P2 Trung bình" value={priorityQueue?.p2Count ?? 0} tone="info" />
+            <PriorityMetric label="P3 Thấp" value={priorityQueue?.p3Count ?? 0} />
+            <PriorityMetric label="Tổng gap" value={priorityQueue?.totalItems ?? 0} />
+          </Box>
+
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
+            <TextField
+              select
+              label="Ưu tiên"
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value as DataCoveragePriorityLevel | "")}
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="">Tất cả</MenuItem>
+              {(Object.entries(PRIORITY_LABELS) as [DataCoveragePriorityLevel, string][]).map(([key, label]) => (
+                <MenuItem key={key} value={key}>{key} - {label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Nguồn"
+              value={prioritySource}
+              onChange={(event) => setPrioritySource(event.target.value)}
+              sx={{ minWidth: 190 }}
+            >
+              <MenuItem value="ALL">Tất cả</MenuItem>
+              <MenuItem value="PORTFOLIO">Portfolio</MenuItem>
+              <MenuItem value="WATCHLIST">Watchlist</MenuItem>
+              <MenuItem value="DECISION_PLAN">Decision Plan</MenuItem>
+              <MenuItem value="OPPORTUNITY">Opportunity</MenuItem>
+              <MenuItem value="RANKING">Ranking</MenuItem>
+            </TextField>
+            <TextField
+              label="Tìm mã"
+              value={prioritySearch}
+              onChange={(event) => setPrioritySearch(event.target.value)}
+              sx={{ minWidth: 220 }}
+            />
+          </Stack>
+
+          <PriorityQueueTable items={priorityQueue?.items ?? []} />
+        </CardContent>
+      </Card>
 
       {/* Summary cards */}
       <Box
@@ -356,6 +482,92 @@ export default function AdminDataGapsPage() {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────
+
+function PriorityQueueTable({ items }: { items: DataCoveragePriorityItem[] }) {
+  return (
+    <TableContainer sx={{ overflowX: "auto" }}>
+      <Table size="small" sx={{ minWidth: 1200 }}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Mã</TableCell>
+            <TableCell>Tên</TableCell>
+            <TableCell>Ưu tiên</TableCell>
+            <TableCell align="right">Điểm</TableCell>
+            <TableCell>Lý do chính</TableCell>
+            <TableCell>Thiếu dữ liệu</TableCell>
+            <TableCell>Module bị ảnh hưởng</TableCell>
+            <TableCell>Hành động gợi ý</TableCell>
+            <TableCell>Trạng thái hiện tại</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow key={item.stockCode} hover>
+              <TableCell><strong>{item.stockCode}</strong></TableCell>
+              <TableCell sx={{ maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {item.stockName}
+              </TableCell>
+              <TableCell><PriorityChip level={item.priorityLevel} /></TableCell>
+              <TableCell align="right">{item.priorityScore}</TableCell>
+              <TableCell sx={{ maxWidth: 220 }}>
+                <Tooltip title={item.notes || item.primaryReason} placement="top-start">
+                  <span>{item.primaryReason}</span>
+                </Tooltip>
+              </TableCell>
+              <TableCell>{compactList(item.missingFields)}</TableCell>
+              <TableCell>{compactList(item.affectedModules)}</TableCell>
+              <TableCell>{ACTION_LABELS[item.suggestedAction] ?? item.suggestedAction}</TableCell>
+              <TableCell>
+                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                  {item.isInPortfolio && <Chip size="small" label="Portfolio" color="primary" variant="outlined" />}
+                  {item.isInWatchlist && <Chip size="small" label="Watchlist" color="warning" variant="outlined" />}
+                  {item.hasActiveDecisionPlan && <Chip size="small" label="Plan" color="success" variant="outlined" />}
+                  {item.currentDecision && <Chip size="small" label={item.currentDecision} />}
+                  {item.dataConfidenceLevel && <Chip size="small" label={item.dataConfidenceLevel} variant="outlined" />}
+                </Stack>
+              </TableCell>
+            </TableRow>
+          ))}
+          {!items.length && (
+            <TableRow>
+              <TableCell colSpan={9}>Không có mã phù hợp.</TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+}
+
+function PriorityMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "error" | "warning" | "info";
+}) {
+  const color = tone === "error" ? "error.main" : tone === "warning" ? "warning.main" : tone === "info" ? "info.main" : "text.primary";
+  return (
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, p: 1.5 }}>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="h5" sx={{ color, fontWeight: 750 }}>{value.toLocaleString("vi-VN")}</Typography>
+    </Box>
+  );
+}
+
+function PriorityChip({ level }: { level: DataCoveragePriorityLevel }) {
+  const color = level === "P0" ? "error" : level === "P1" ? "warning" : level === "P2" ? "info" : "default";
+  return <Chip size="small" color={color} label={`${level} - ${PRIORITY_LABELS[level]}`} />;
+}
+
+function compactList(values: string[]) {
+  if (!values.length) return "-";
+  const visible = values.slice(0, 3).join(", ");
+  const suffix = values.length > 3 ? ` +${values.length - 3}` : "";
+  return `${visible}${suffix}`;
+}
 
 function ReasonChip({ reason }: { reason: DataGapReason }) {
   const label = REASON_LABELS[reason] ?? reason;

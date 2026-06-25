@@ -34,6 +34,52 @@ export interface OpportunityDataGapPage {
   reasonCounts: Record<string, number>;
 }
 
+export type DataCoveragePriorityLevel = "P0" | "P1" | "P2" | "P3";
+
+export interface DataCoveragePriorityItem {
+  stockCode: string;
+  stockName: string;
+  exchange?: string | null;
+  industry?: string | null;
+  industryGroup?: string | null;
+  priorityLevel: DataCoveragePriorityLevel;
+  priorityScore: number;
+  primaryReason: string;
+  missingFields: string[];
+  dataIssues: string[];
+  affectedModules: string[];
+  suggestedAction: string;
+  yearsMissingFinancials: number[];
+  yearsMissingShareInfo: number[];
+  latestFinancialYear?: number | null;
+  latestPriceDate?: string | null;
+  hasLatestPrice: boolean;
+  hasCompanyProfile: boolean;
+  dataConfidenceLevel?: string | null;
+  currentDecision?: string | null;
+  currentOpportunityType?: string | null;
+  finalScore?: number | null;
+  isInPortfolio: boolean;
+  isInWatchlist: boolean;
+  hasActiveDecisionPlan: boolean;
+  opportunityRank?: number | null;
+  rankingRank?: number | null;
+  notes?: string | null;
+}
+
+export interface DataCoveragePriorityQueue {
+  generatedAt: string;
+  totalItems: number;
+  p0Count: number;
+  p1Count: number;
+  p2Count: number;
+  p3Count: number;
+  sourceStats: Record<string, number>;
+  topMissingFields: Record<string, number>;
+  topAffectedModules: Record<string, number>;
+  items: DataCoveragePriorityItem[];
+}
+
 export interface ManualShareInfoResult {
   stockCode: string;
   year: number;
