@@ -245,6 +245,47 @@ export interface OpportunityDetailItem extends OpportunitySummaryItem {
   priceWarnings?: string[];
   reasons?: string[];
   risks?: string[];
+  // Valuation V2.1 — Historical
+  historicalMedianPe3y?: number | null;
+  historicalMedianPb3y?: number | null;
+  peVsHistoryPercent?: number | null;
+  pbVsHistoryPercent?: number | null;
+  peHistoryLabel?: string | null;
+  pbHistoryLabel?: string | null;
+  historicalValuationLabel?: string | null;
+  historicalValuationScore?: number | null;
+  historicalValuationExplanation?: string | null;
+  historicalValuationWarnings?: string[];
+  // Valuation V2.2 — Industry Median
+  industryMedianPe?: number | null;
+  industryMedianPb?: number | null;
+  peVsIndustryPercent?: number | null;
+  pbVsIndustryPercent?: number | null;
+  peIndustryLabel?: string | null;
+  pbIndustryLabel?: string | null;
+  industryMedianLabel?: string | null;
+  industryMedianScore?: number | null;
+  industrySampleSize?: number | null;
+  industryMedianExplanation?: string | null;
+  industryMedianWarnings?: string[];
+  // Valuation V2.3 — Quality-adjusted
+  qualityAdjustedValuationLabel?: string | null;
+  qualityPremiumStatus?: string | null;
+  valueTrapRiskLevel?: string | null;
+  premiumJustificationScore?: number | null;
+  discountQualityRiskScore?: number | null;
+  qualityAdjustedValuationScore?: number | null;
+  qualityAdjustedValuationExplanation?: string | null;
+  qualityAdjustedValuationWarnings?: string[];
+  valuationActionability?: string | null;
+  // Valuation V2.4 — PEG / Growth Alignment
+  pegRatio?: number | null;
+  expectedPeMin?: number | null;
+  expectedPeMax?: number | null;
+  growthAlignmentLabel?: string | null;
+  growthAlignmentScore?: number | null;
+  growthAdjustedExplanation?: string | null;
+  growthAdjustedWarnings?: string[];
 }
 
 export interface OpportunityWrappedResponse {

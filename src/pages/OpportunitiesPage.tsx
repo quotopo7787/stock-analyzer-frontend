@@ -1234,6 +1234,8 @@ function OpportunityDetailDrawer({
               </CardContent>
             </Card>
 
+            <ValuationV2Card detail={detail} />
+
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
@@ -2024,4 +2026,263 @@ function reasonTooltip(code: string) {
     LOW_LIQUIDITY: "Thanh khoản thấp có thể ảnh hưởng khả năng giải ngân hoặc thoát vị thế.",
   };
   return tooltips[code] ?? reasonLabel(code);
+}
+
+// ─── Valuation V2 helpers ───────────────────────────────
+
+type V2LabelColor = "success" | "info" | "warning" | "error" | "default";
+
+function historicalLabelVi(label?: string | null): string {
+  const m: Record<string, string> = {
+    BELOW_HISTORY: "Thấp hơn lịch sử",
+    FAR_BELOW_HISTORY: "Thấp hơn nhiều so với lịch sử",
+    NEAR_HISTORY: "Gần vùng lịch sử",
+    ABOVE_HISTORY: "Cao hơn lịch sử",
+    FAR_ABOVE_HISTORY: "Cao hơn nhiều so với lịch sử",
+    INSUFFICIENT_HISTORY: "Chưa đủ lịch sử",
+    INVALID_VALUATION: "Định giá không hợp lệ",
+  };
+  return label ? m[label] ?? label : "Chưa đủ dữ liệu";
+}
+
+function historicalLabelColor(label?: string | null): V2LabelColor {
+  if (!label) return "default";
+  if (label.includes("BELOW")) return "success";
+  if (label.includes("NEAR")) return "info";
+  if (label.includes("ABOVE")) return "warning";
+  if (label.includes("FAR_ABOVE")) return "error";
+  return "default";
+}
+
+function industryLabelVi(label?: string | null): string {
+  const m: Record<string, string> = {
+    CHEAPER_THAN_INDUSTRY: "Thấp hơn trung vị ngành",
+    FAR_CHEAPER_THAN_INDUSTRY: "Thấp hơn nhiều so với ngành",
+    NEAR_INDUSTRY: "Gần trung vị ngành",
+    MORE_EXPENSIVE_THAN_INDUSTRY: "Cao hơn trung vị ngành",
+    FAR_MORE_EXPENSIVE_THAN_INDUSTRY: "Cao hơn nhiều so với ngành",
+    INDUSTRY_DATA_INSUFFICIENT: "Chưa đủ mẫu ngành",
+    INVALID_VALUATION: "Định giá không hợp lệ",
+  };
+  return label ? m[label] ?? label : "Chưa đủ dữ liệu";
+}
+
+function industryLabelColor(label?: string | null): V2LabelColor {
+  if (!label) return "default";
+  if (label.includes("CHEAPER")) return "success";
+  if (label.includes("NEAR")) return "info";
+  if (label.includes("MORE_EXPENSIVE") && !label.includes("FAR")) return "warning";
+  if (label.includes("FAR_MORE_EXPENSIVE")) return "error";
+  return "default";
+}
+
+function qualityAdjustedLabelVi(label?: string | null): string {
+  const m: Record<string, string> = {
+    FAIR_FOR_QUALITY: "Hợp lý so với chất lượng",
+    QUALITY_PREMIUM_JUSTIFIED: "Premium được chất lượng hỗ trợ",
+    QUALITY_PREMIUM_TOO_HIGH: "Premium cao, cần thận trọng",
+    DISCOUNT_WITH_QUALITY_SUPPORT: "Giá rẻ có chất lượng hỗ trợ",
+    VALUE_TRAP_RISK: "Rủi ro value trap",
+    DATA_TOO_WEAK_TO_JUDGE: "Dữ liệu yếu, chưa nên kết luận",
+    CYCLICAL_DISCOUNT_NEEDS_CONFIRMATION: "Cần xác nhận chu kỳ",
+    INSUFFICIENT_DATA: "Chưa đủ dữ liệu",
+  };
+  return label ? m[label] ?? label : "Chưa đủ dữ liệu";
+}
+
+function qualityAdjustedLabelColor(label?: string | null): V2LabelColor {
+  if (!label) return "default";
+  if (label === "QUALITY_PREMIUM_JUSTIFIED" || label === "DISCOUNT_WITH_QUALITY_SUPPORT") return "success";
+  if (label === "FAIR_FOR_QUALITY") return "info";
+  if (label === "QUALITY_PREMIUM_TOO_HIGH" || label === "CYCLICAL_DISCOUNT_NEEDS_CONFIRMATION") return "warning";
+  if (label === "VALUE_TRAP_RISK" || label === "DATA_TOO_WEAK_TO_JUDGE") return "error";
+  return "default";
+}
+
+function growthLabelVi(label?: string | null): string {
+  const m: Record<string, string> = {
+    EXCELLENT_GROWTH_VALUE: "PEG rất tốt",
+    GROWTH_ALIGNED: "P/E phù hợp tăng trưởng",
+    GROWTH_EXPENSIVE: "P/E cao so với tăng trưởng",
+    GROWTH_NOT_MEANINGFUL: "Tăng trưởng không đủ ý nghĩa",
+    GROWTH_DATA_UNRELIABLE: "Dữ liệu tăng trưởng không đáng tin",
+    CYCLICAL_GROWTH_NEEDS_CONFIRMATION: "Tăng trưởng chu kỳ cần xác nhận",
+    INSUFFICIENT_GROWTH_DATA: "Chưa đủ dữ liệu tăng trưởng",
+    INVALID_PE: "P/E không hợp lệ",
+  };
+  return label ? m[label] ?? label : "Chưa đủ dữ liệu";
+}
+
+function growthLabelColor(label?: string | null): V2LabelColor {
+  if (!label) return "default";
+  if (label === "EXCELLENT_GROWTH_VALUE") return "success";
+  if (label === "GROWTH_ALIGNED") return "info";
+  if (label === "GROWTH_EXPENSIVE") return "warning";
+  if (label === "GROWTH_DATA_UNRELIABLE" || label === "GROWTH_NOT_MEANINGFUL" || label === "INVALID_PE") return "error";
+  if (label === "CYCLICAL_GROWTH_NEEDS_CONFIRMATION" || label === "INSUFFICIENT_GROWTH_DATA") return "warning";
+  return "default";
+}
+
+function fmtX(v?: number | null): string {
+  if (v == null || Number.isNaN(v)) return "-";
+  return `${v.toLocaleString("vi-VN", { maximumFractionDigits: 2 })}x`;
+}
+
+function fmtDelta(v?: number | null): string {
+  if (v == null || Number.isNaN(v)) return "-";
+  const sign = v >= 0 ? "+" : "";
+  return `${sign}${v.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%`;
+}
+
+function fmtScore(v?: number | null): string {
+  if (v == null || Number.isNaN(v)) return "-";
+  return `${v.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}/10`;
+}
+
+function V2WarningList({ warnings }: { warnings?: string[] }) {
+  if (!warnings || warnings.length === 0) return null;
+  return (
+    <Stack spacing={0.5} sx={{ mt: 1 }}>
+      {warnings.map((w, i) => (
+        <Alert key={i} severity="warning" sx={{ py: 0.25, px: 1, fontSize: "0.8rem", "& .MuiAlert-message": { py: 0.25 } }}>
+          {w}
+        </Alert>
+      ))}
+    </Stack>
+  );
+}
+
+function V2Section({
+  title,
+  label,
+  labelColor,
+  score,
+  children,
+  explanation,
+  warnings,
+}: {
+  title: string;
+  label: string;
+  labelColor: V2LabelColor;
+  score?: string;
+  children: React.ReactNode;
+  explanation?: string | null;
+  warnings?: string[];
+}) {
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{title}</Typography>
+        <Chip label={label} color={labelColor} size="small" sx={{ fontWeight: 600 }} />
+        {score && <Typography variant="caption" color="text.secondary">{score}</Typography>}
+      </Stack>
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1, mb: 0.5 }}>
+        {children}
+      </Box>
+      {explanation && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75, lineHeight: 1.5 }}>
+          {explanation}
+        </Typography>
+      )}
+      <V2WarningList warnings={warnings} />
+    </Box>
+  );
+}
+
+function ValuationV2Card({ detail }: { detail: OpportunityDetailItem }) {
+  const hasV21 = detail.historicalValuationLabel != null;
+  const hasV22 = detail.industryMedianLabel != null;
+  const hasV23 = detail.qualityAdjustedValuationLabel != null;
+  const hasV24 = detail.growthAlignmentLabel != null;
+
+  if (!hasV21 && !hasV22 && !hasV23 && !hasV24) return null;
+
+  return (
+    <Card variant="outlined">
+      <CardContent>
+        <Typography variant="subtitle1" sx={{ mb: 0.5, fontWeight: 700 }}>
+          Định giá V2
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+          Tách định giá thành 4 lớp: lịch sử, ngành, chất lượng và tăng trưởng. Đây là lớp giải thích, không phải khuyến nghị mua/bán tự động.
+        </Typography>
+
+        {hasV21 && (
+          <V2Section
+            title="So với lịch sử"
+            label={historicalLabelVi(detail.historicalValuationLabel)}
+            labelColor={historicalLabelColor(detail.historicalValuationLabel)}
+            score={fmtScore(detail.historicalValuationScore)}
+            explanation={detail.historicalValuationExplanation}
+            warnings={detail.historicalValuationWarnings}
+          >
+            <MetricLine label="P/E hiện tại" value={fmtX(detail.pe)} />
+            <MetricLine label="P/E median 3 năm" value={fmtX(detail.historicalMedianPe3y)} />
+            <MetricLine label="P/B hiện tại" value={fmtX(detail.pb)} />
+            <MetricLine label="P/B median 3 năm" value={fmtX(detail.historicalMedianPb3y)} />
+            <MetricLine label="P/E vs lịch sử" value={fmtDelta(detail.peVsHistoryPercent)} />
+            <MetricLine label="P/B vs lịch sử" value={fmtDelta(detail.pbVsHistoryPercent)} />
+          </V2Section>
+        )}
+
+        {hasV21 && hasV22 && <Divider sx={{ my: 1.5 }} />}
+
+        {hasV22 && (
+          <V2Section
+            title="So với ngành"
+            label={industryLabelVi(detail.industryMedianLabel)}
+            labelColor={industryLabelColor(detail.industryMedianLabel)}
+            score={fmtScore(detail.industryMedianScore)}
+            explanation={detail.industryMedianExplanation}
+            warnings={detail.industryMedianWarnings}
+          >
+            <MetricLine label="P/E median ngành" value={fmtX(detail.industryMedianPe)} />
+            <MetricLine label="P/B median ngành" value={fmtX(detail.industryMedianPb)} />
+            <MetricLine label="P/E vs ngành" value={fmtDelta(detail.peVsIndustryPercent)} />
+            <MetricLine label="P/B vs ngành" value={fmtDelta(detail.pbVsIndustryPercent)} />
+            <MetricLine label="Mẫu ngành" value={detail.industrySampleSize != null ? `${detail.industrySampleSize} mã` : "-"} />
+          </V2Section>
+        )}
+
+        {hasV22 && hasV23 && <Divider sx={{ my: 1.5 }} />}
+
+        {hasV23 && (
+          <V2Section
+            title="Sau khi xét chất lượng"
+            label={qualityAdjustedLabelVi(detail.qualityAdjustedValuationLabel)}
+            labelColor={qualityAdjustedLabelColor(detail.qualityAdjustedValuationLabel)}
+            score={fmtScore(detail.qualityAdjustedValuationScore)}
+            explanation={detail.qualityAdjustedValuationExplanation}
+            warnings={detail.qualityAdjustedValuationWarnings}
+          >
+            <MetricLine label="Premium status" value={detail.qualityPremiumStatus ?? "-"} />
+            <MetricLine label="Value trap risk" value={detail.valueTrapRiskLevel ?? "-"} />
+            <MetricLine label="Điểm justify premium" value={formatNumber(detail.premiumJustificationScore)} />
+            <MetricLine label="Điểm rủi ro discount" value={formatNumber(detail.discountQualityRiskScore)} />
+          </V2Section>
+        )}
+
+        {hasV23 && hasV24 && <Divider sx={{ my: 1.5 }} />}
+
+        {hasV24 && (
+          <V2Section
+            title="PEG & tăng trưởng"
+            label={growthLabelVi(detail.growthAlignmentLabel)}
+            labelColor={growthLabelColor(detail.growthAlignmentLabel)}
+            score={fmtScore(detail.growthAlignmentScore)}
+            explanation={detail.growthAdjustedExplanation}
+            warnings={detail.growthAdjustedWarnings}
+          >
+            <MetricLine label="PEG" value={detail.pegRatio != null ? formatNumber(detail.pegRatio) : "Không tính được"} />
+            <MetricLine
+              label="P/E kỳ vọng"
+              value={detail.expectedPeMin != null && detail.expectedPeMax != null
+                ? `${formatNumber(detail.expectedPeMin, 0)}–${formatNumber(detail.expectedPeMax, 0)}x`
+                : "-"}
+            />
+          </V2Section>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
