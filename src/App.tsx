@@ -16,6 +16,7 @@ import DecisionPlansPage from "./pages/DecisionPlansPage";
 import PortfolioPage from "./pages/PortfolioPage";
 import PortfolioAllocationPage from "./pages/PortfolioAllocationPage";
 import ValuationScenariosPage from "./pages/ValuationScenariosPage";
+import PaperTradingPage from "./pages/PaperTradingPage";
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
           <Route path="valuation-scenarios" element={<ValuationScenariosPage />} />
           <Route path="portfolio" element={<PortfolioPage />} />
           <Route path="portfolio-allocation" element={<PortfolioAllocationPage />} />
+          <Route path="paper-trading" element={<PaperTradingPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

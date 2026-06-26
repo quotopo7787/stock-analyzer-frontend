@@ -4,7 +4,7 @@ import {
 } from "@mui/material";
 import {
   AccountBalanceWalletOutlined, CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
-  NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ShowChart, SignalCellularAlt,
+  NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ScienceOutlined, ShowChart, SignalCellularAlt,
   StarBorderOutlined,
 } from "@mui/icons-material";
 import { Link, Outlet, useLocation } from "react-router-dom";
@@ -19,6 +19,7 @@ const navItems = [
   { label: "Định giá", to: "/valuation-scenarios", icon: <CalculateOutlined /> },
   { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
   { label: "Phân bổ vốn", to: "/portfolio-allocation", icon: <AccountBalanceWalletOutlined /> },
+  { label: "Paper Trading", to: "/paper-trading", icon: <ScienceOutlined /> },
 ];
 
 export default function AppLayout() {
