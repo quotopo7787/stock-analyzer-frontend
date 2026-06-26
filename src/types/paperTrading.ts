@@ -54,6 +54,39 @@ export interface DailyCheckResponse {
   readOnly: boolean;
 }
 
+export interface SampleGrowthSummaryResponse {
+  totalSignals: number;
+  openSignals: number;
+  evaluated7DCount: number;
+  evaluated30DCount: number;
+  evaluated90DCount: number;
+  benchmarked7DCount: number;
+  missingBenchmark7DCount: number;
+  pending7DCount: number;
+  pending30DCount: number;
+  pending90DCount: number;
+  target7DCount: number;
+  strongTarget7DCount: number;
+  remainingTo100Evaluated7D: number;
+  remainingTo300Evaluated7D: number;
+  progressTo100Evaluated7DPct: number;
+  progressTo300Evaluated7DPct: number;
+  latestCaptureDate: string | null;
+  latestEvaluationDate: string | null;
+  captureSchedulerEnabled: boolean;
+  evaluateSchedulerEnabled: boolean;
+  captureDryRun: boolean;
+  evaluateDryRun: boolean;
+  captureRequireConfirm: boolean;
+  evaluateRequireConfirm: boolean;
+  lastCaptureRunAt: string | null;
+  lastCaptureResult: string | null;
+  lastEvaluateRunAt: string | null;
+  lastEvaluateResult: string | null;
+  recommendationLevel: "TOO_EARLY" | "EARLY_TUNING" | "STRONGER_SAMPLE";
+  recommendationMessages: string[];
+}
+
 export interface AlphaOverviewResponse {
   group: string;
   count: number;
@@ -81,6 +114,11 @@ export interface AlphaOverviewResponse {
   alphaConfidenceWarnings?: string[];
   alphaConfidenceDowngraded?: boolean;
   alphaConfidenceDowngradeReasons?: string[];
+  alphaDirectionSignal?: string;
+  alphaInterpretationLevel?: "POSITIVE" | "NEGATIVE" | "INCONCLUSIVE" | "TOO_EARLY";
+  alphaInterpretationSummary?: string;
+  alphaInterpretationMessages?: string[];
+  alphaInterpretationWarnings?: string[];
   interpretation: string[];
 }
 

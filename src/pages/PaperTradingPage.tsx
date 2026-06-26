@@ -12,7 +12,7 @@ import { paperTradingApi } from "../api/paperTradingApi";
 import type {
   AlphaByDecisionItem, AlphaOverviewResponse, AlphaTopItem,
   DailyCheckResponse, DailyMonitoringResponse, JobDailySummaryResponse, JobRunItem, MonitoringIssue,
-  SchedulerStatusResponse,
+  SampleGrowthSummaryResponse, SchedulerStatusResponse,
 } from "../types/paperTrading";
 
 const healthLabel: Record<string, string> = {
@@ -52,6 +52,18 @@ const severityIcon: Record<string, React.ReactNode> = {
   WARNING: <WarningAmberOutlined color="warning" fontSize="small" />,
   INFO: <InfoOutlined color="info" fontSize="small" />,
 };
+const interpretationLevelColor: Record<string, "success" | "warning" | "error" | "info"> = {
+  POSITIVE: "success",
+  NEGATIVE: "error",
+  INCONCLUSIVE: "info",
+  TOO_EARLY: "warning",
+};
+const interpretationLevelLabel: Record<string, string> = {
+  POSITIVE: "Tích cực",
+  NEGATIVE: "Tiêu cực",
+  INCONCLUSIVE: "Chưa rõ",
+  TOO_EARLY: "Quá sớm",
+};
 
 function fmt(v: number | null | undefined, digits = 2): string {
   if (v == null) return "—";
@@ -72,6 +84,7 @@ export default function PaperTradingPage() {
   const [losers, setLosers] = useState<AlphaTopItem[]>([]);
   const [scheduler, setScheduler] = useState<SchedulerStatusResponse | null>(null);
   const [jobSummary, setJobSummary] = useState<JobDailySummaryResponse | null>(null);
+  const [sampleGrowth, setSampleGrowth] = useState<SampleGrowthSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -80,7 +93,7 @@ export default function PaperTradingPage() {
     setLoading(true);
     setError(null);
     try {
-      const [d, c, a, dec, w, l, s, js] = await Promise.all([
+      const [d, c, a, dec, w, l, s, sg, js] = await Promise.all([
         paperTradingApi.getDaily(),
         paperTradingApi.getDailyCheck(),
         paperTradingApi.getAlphaOverview(),
@@ -88,6 +101,7 @@ export default function PaperTradingPage() {
         paperTradingApi.getAlphaTopWinners(),
         paperTradingApi.getAlphaTopLosers(),
         paperTradingApi.getSchedulerStatus(),
+        paperTradingApi.getSampleGrowthSummary(),
         paperTradingApi.getJobsDailySummary().catch(() => null),
       ]);
       setDaily(d);
@@ -97,6 +111,7 @@ export default function PaperTradingPage() {
       setWinners(w);
       setLosers(l);
       setScheduler(s);
+      setSampleGrowth(sg);
       setJobSummary(js);
       setLastRefresh(new Date());
     } catch {
@@ -126,6 +141,11 @@ export default function PaperTradingPage() {
   }
 
   const health = daily?.overallHealth ?? "WARNING";
+  const alphaInterpretationMessages = alpha?.alphaInterpretationMessages?.length
+    ? alpha.alphaInterpretationMessages
+    : ["Chưa có đủ dữ liệu để diễn giải."];
+  const alphaInterpretationWarnings = alpha?.alphaInterpretationWarnings ?? [];
+  const alphaInterpretationLevel = alpha?.alphaInterpretationLevel ?? "INCONCLUSIVE";
 
   return (
     <Box>
@@ -213,6 +233,62 @@ export default function PaperTradingPage() {
         </Card>
       </Stack>
 
+      {sampleGrowth && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>Tiến độ thu thập mẫu</Typography>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gap: 1.5,
+                mb: 1.5,
+              }}
+            >
+              <StatMetric label="Mẫu 7D đã đánh giá" value={`${sampleGrowth.evaluated7DCount ?? 0}`} />
+              <StatMetric label="Mẫu 30D đã đánh giá" value={`${sampleGrowth.evaluated30DCount ?? 0}`} />
+              <StatMetric label="Mẫu 90D đã đánh giá" value={`${sampleGrowth.evaluated90DCount ?? 0}`} />
+              <StatMetric label="Còn thiếu để đạt 100 mẫu 7D" value={`${sampleGrowth.remainingTo100Evaluated7D ?? 0}`} />
+              <StatMetric label="Còn thiếu để đạt 300 mẫu 7D" value={`${sampleGrowth.remainingTo300Evaluated7D ?? 0}`} />
+              <StatMetric label="Tín hiệu đang chờ đánh giá" value={`${sampleGrowth.pending7DCount ?? sampleGrowth.openSignals ?? 0}`} />
+              <StatMetric label="Capture gần nhất" value={sampleGrowth.latestCaptureDate ?? "—"} />
+              <StatMetric label="Evaluate gần nhất" value={sampleGrowth.latestEvaluationDate ?? "—"} />
+            </Box>
+            <Typography variant="caption" color="text.secondary">Tiến độ tới mốc 100 mẫu</Typography>
+            <LinearProgress
+              variant="determinate"
+              value={sampleGrowth.progressTo100Evaluated7DPct ?? 0}
+              sx={{ my: 0.75, height: 7, borderRadius: 4 }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              {statFmt(sampleGrowth.progressTo100Evaluated7DPct, 2)}% tới 100 mẫu · {statFmt(sampleGrowth.progressTo300Evaluated7DPct, 2)}% tới 300 mẫu
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 1 }}>
+              <Chip
+                size="small"
+                color={sampleGrowth.captureSchedulerEnabled || sampleGrowth.evaluateSchedulerEnabled ? "warning" : "default"}
+                label={`Scheduler đang ${sampleGrowth.captureSchedulerEnabled || sampleGrowth.evaluateSchedulerEnabled ? "bật" : "tắt"}`}
+              />
+              <Chip
+                size="small"
+                color={sampleGrowth.captureDryRun || sampleGrowth.evaluateDryRun ? "info" : "default"}
+                label={`Dry-run đang ${sampleGrowth.captureDryRun || sampleGrowth.evaluateDryRun ? "bật" : "tắt"}`}
+              />
+              <Chip
+                size="small"
+                color={sampleGrowth.captureRequireConfirm ? "warning" : "default"}
+                label={`Yêu cầu xác nhận live capture: ${sampleGrowth.captureRequireConfirm ? "có" : "không"}`}
+              />
+            </Stack>
+            <Stack spacing={0.5}>
+              {sampleGrowth.recommendationMessages.map((message) => (
+                <Typography key={message} variant="caption" color="text.secondary">• {message}</Typography>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
       {/* C. Alpha section */}
       {alpha && (
         <Card sx={{ mb: 3 }}>
@@ -281,6 +357,28 @@ export default function PaperTradingPage() {
               <StatMetric label="Đã benchmark" value={`${alpha.benchmarkedCount ?? 0}/${alpha.evaluationCount ?? alpha.count ?? 0}`} />
               <StatMetric label="Thiếu benchmark" value={`${alpha.missingBenchmarkCount ?? 0}`} />
               <StatMetric label="Tín hiệu mở" value={`${alpha.openSignalCount ?? 0}`} />
+            </Box>
+            <Box sx={{ mt: 2, p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Diễn giải track record</Typography>
+                <Chip
+                  label={interpretationLevelLabel[alphaInterpretationLevel] ?? "Chưa rõ"}
+                  color={interpretationLevelColor[alphaInterpretationLevel] ?? "info"}
+                  size="small"
+                  variant="outlined"
+                />
+              </Stack>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75 }}>
+                {alpha.alphaInterpretationSummary ?? "Chưa có đủ dữ liệu để diễn giải."}
+              </Typography>
+              <Stack spacing={0.5}>
+                {alphaInterpretationMessages.map((message) => (
+                  <Typography key={message} variant="caption" color="text.secondary">• {message}</Typography>
+                ))}
+                {alphaInterpretationWarnings.map((warning) => (
+                  <Typography key={warning} variant="caption" color="warning.main">⚠ {warning}</Typography>
+                ))}
+              </Stack>
             </Box>
             {(alpha.averageAlpha ?? 0) < 0 && (
               <Alert severity="warning" sx={{ mt: 1.5 }} icon={false}>
