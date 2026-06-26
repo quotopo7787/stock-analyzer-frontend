@@ -11,7 +11,7 @@ import {
 import { paperTradingApi } from "../api/paperTradingApi";
 import type {
   AlphaByDecisionItem, AlphaOverviewResponse, AlphaTopItem,
-  DailyCheckResponse, DailyMonitoringResponse, MonitoringIssue,
+  DailyCheckResponse, DailyMonitoringResponse, JobDailySummaryResponse, JobRunItem, MonitoringIssue,
   SchedulerStatusResponse,
 } from "../types/paperTrading";
 
@@ -58,6 +58,7 @@ export default function PaperTradingPage() {
   const [winners, setWinners] = useState<AlphaTopItem[]>([]);
   const [losers, setLosers] = useState<AlphaTopItem[]>([]);
   const [scheduler, setScheduler] = useState<SchedulerStatusResponse | null>(null);
+  const [jobSummary, setJobSummary] = useState<JobDailySummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -66,7 +67,7 @@ export default function PaperTradingPage() {
     setLoading(true);
     setError(null);
     try {
-      const [d, c, a, dec, w, l, s] = await Promise.all([
+      const [d, c, a, dec, w, l, s, js] = await Promise.all([
         paperTradingApi.getDaily(),
         paperTradingApi.getDailyCheck(),
         paperTradingApi.getAlphaOverview(),
@@ -74,6 +75,7 @@ export default function PaperTradingPage() {
         paperTradingApi.getAlphaTopWinners(),
         paperTradingApi.getAlphaTopLosers(),
         paperTradingApi.getSchedulerStatus(),
+        paperTradingApi.getJobsDailySummary().catch(() => null),
       ]);
       setDaily(d);
       setCheck(c);
@@ -82,6 +84,7 @@ export default function PaperTradingPage() {
       setWinners(w);
       setLosers(l);
       setScheduler(s);
+      setJobSummary(js);
       setLastRefresh(new Date());
     } catch {
       setError("Không kết nối được backend. Kiểm tra localhost:8080.");
@@ -224,11 +227,11 @@ export default function PaperTradingPage() {
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Độ tin cậy</Typography>
-                <Chip label={alpha.confidenceLabel ?? "—"} size="small" variant="outlined" />
+                <Chip label={alpha.alphaConfidenceLabel ?? "—"} size="small" variant="outlined" />
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Mẫu</Typography>
-                <Typography variant="h6">{alpha.sampleSize ?? 0}</Typography>
+                <Typography variant="h6">{alpha.evaluationCount ?? alpha.count ?? 0}</Typography>
               </Box>
             </Stack>
             {(alpha.averageAlpha ?? 0) < 0 && (
@@ -236,6 +239,9 @@ export default function PaperTradingPage() {
                 Alpha âm nghĩa là tín hiệu đang kém VNINDEX trong mẫu hiện tại.
               </Alert>
             )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+              Alpha chỉ tính trên tín hiệu đã đủ hạn đánh giá. 30D/90D sẽ xuất hiện sau khi tín hiệu đủ ngày.
+            </Typography>
           </CardContent>
         </Card>
       )}
@@ -285,9 +291,9 @@ export default function PaperTradingPage() {
                 </TableHead>
                 <TableBody>
                   {byDecision.map((row) => (
-                    <TableRow key={row.decision}>
-                      <TableCell>{row.decision}</TableCell>
-                      <TableCell align="right">{row.sampleSize}</TableCell>
+                    <TableRow key={row.group}>
+                      <TableCell>{row.group}</TableCell>
+                      <TableCell align="right">{row.count}</TableCell>
                       <TableCell align="right" sx={{ color: (row.averageAlpha ?? 0) >= 0 ? "success.main" : "error.main" }}>
                         {fmt(row.averageAlpha, 4)}%
                       </TableCell>
@@ -313,9 +319,11 @@ export default function PaperTradingPage() {
       {scheduler && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>Trạng thái Scheduler</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>Trạng thái scheduler hiện tại</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
-              Scheduler đang tắt là trạng thái an toàn nếu chưa bật live collection.
+              {!scheduler.captureEnabled && !scheduler.evaluateEnabled && jobSummary && jobSummary.totalJobs > 0
+                ? "Scheduler hiện tại đang tắt, nhưng lịch sử job đã chạy vẫn được lưu trong DB."
+                : "Scheduler đang tắt là trạng thái an toàn nếu chưa bật live collection."}
             </Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
               <Box>
@@ -357,6 +365,71 @@ export default function PaperTradingPage() {
         </Card>
       )}
 
+      {/* H. Job history */}
+      {jobSummary && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
+              Nhật ký job đã lưu DB ({jobSummary.date})
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              Dữ liệu job được lưu DB, không mất khi restart app.
+            </Typography>
+            {jobSummary.totalJobs === 0 ? (
+              <Typography variant="body2" color="text.secondary">Chưa có job nào hôm nay.</Typography>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Job</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Started at</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Inserted</TableCell>
+                      <TableCell align="right">Duplicates</TableCell>
+                      <TableCell align="right">Evaluated</TableCell>
+                      <TableCell align="right">Failed</TableCell>
+                      <TableCell align="right">Duration</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {[jobSummary.captureLatest, jobSummary.evaluateLatest]
+                      .filter((r): r is JobRunItem => r != null)
+                      .map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell>{r.jobName}</TableCell>
+                          <TableCell>{r.runType}</TableCell>
+                          <TableCell>{r.startedAt ? new Date(r.startedAt).toLocaleTimeString("vi-VN") : "—"}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={r.status}
+                              size="small"
+                              color={r.status === "SUCCESS" ? "success" : r.status === "FAILED" ? "error" : r.status === "DRY_RUN" ? "info" : "default"}
+                            />
+                          </TableCell>
+                          <TableCell align="right">{r.insertedCount}</TableCell>
+                          <TableCell align="right">{r.duplicateCount}</TableCell>
+                          <TableCell align="right">{r.evaluatedCount}</TableCell>
+                          <TableCell align="right">{r.failedCount}</TableCell>
+                          <TableCell align="right">{r.durationMs != null ? `${(r.durationMs / 1000).toFixed(1)}s` : "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+            {jobSummary.warnings.length > 0 && (
+              <Stack spacing={0.5} sx={{ mt: 1 }}>
+                {jobSummary.warnings.map((w, i) => (
+                  <Typography key={i} variant="caption" color="warning.main">⚠ {w}</Typography>
+                ))}
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Disclaimer */}
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center", mt: 2 }}>
         Đây là tín hiệu mô phỏng — Không phải khuyến nghị đầu tư.
@@ -388,9 +461,9 @@ function TopTable({ title, items }: { title: string; items: AlphaTopItem[] }) {
               <TableBody>
                 {items.map((r, i) => (
                   <TableRow key={i}>
-                    <TableCell sx={{ fontWeight: 600 }}>{r.stockCode}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{r.symbol}</TableCell>
                     <TableCell>{r.decision}</TableCell>
-                    <TableCell align="right">{fmt(r.finalScore, 1)}</TableCell>
+                    <TableCell align="right">{r.score != null ? fmt(r.score, 1) : "—"}</TableCell>
                     <TableCell align="right">{fmt(r.signalReturn, 2)}%</TableCell>
                     <TableCell align="right">{fmt(r.benchmarkReturn, 2)}%</TableCell>
                     <TableCell

@@ -55,33 +55,47 @@ export interface DailyCheckResponse {
 }
 
 export interface AlphaOverviewResponse {
-  sourceType: string;
-  horizonDays: number;
-  benchmarkCode: string;
-  sampleSize: number;
+  group: string;
+  count: number;
+  evaluationCount: number;
+  benchmarkedCount: number;
+  missingBenchmarkCount: number;
   averageSignalReturn: number | null;
   averageBenchmarkReturn: number | null;
   averageAlpha: number | null;
+  medianAlpha: number | null;
   positiveAlphaRate: number | null;
-  confidenceLabel: string;
+  bestAlpha: number | null;
+  worstAlpha: number | null;
+  alphaStandardDeviation: number | null;
+  alphaConfidenceLabel: string;
+  interpretation: string[];
 }
 
 export interface AlphaByDecisionItem {
-  decision: string;
-  sampleSize: number;
+  group: string;
+  count: number;
+  evaluationCount: number;
+  benchmarkedCount: number;
   averageAlpha: number | null;
   positiveAlphaRate: number | null;
   averageSignalReturn: number | null;
   averageBenchmarkReturn: number | null;
+  medianAlpha: number | null;
+  bestAlpha: number | null;
+  worstAlpha: number | null;
 }
 
 export interface AlphaTopItem {
-  stockCode: string;
+  symbol: string;
   decision: string;
-  finalScore: number | null;
+  score: number | null;
   signalReturn: number | null;
   benchmarkReturn: number | null;
   alpha: number | null;
+  sourceType: string;
+  signalDate: string;
+  evaluationDate: string;
 }
 
 export interface SchedulerStatusResponse {
@@ -100,4 +114,32 @@ export interface SchedulerStatusResponse {
   totalCaptureRuns: number;
   totalEvaluateRuns: number;
   [key: string]: unknown;
+}
+
+export interface JobRunItem {
+  id: number;
+  jobName: string;
+  runType: string;
+  runDate: string;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  dryRun: boolean;
+  insertedCount: number;
+  duplicateCount: number;
+  skippedCount: number;
+  failedCount: number;
+  dueCount: number;
+  evaluatedCount: number;
+  durationMs: number | null;
+  errorMessage: string | null;
+}
+
+export interface JobDailySummaryResponse {
+  date: string;
+  totalJobs: number;
+  failedJobs: number;
+  captureLatest: JobRunItem | null;
+  evaluateLatest: JobRunItem | null;
+  warnings: string[];
 }

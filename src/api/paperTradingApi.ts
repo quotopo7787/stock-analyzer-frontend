@@ -6,6 +6,7 @@ import type {
   AlphaByDecisionItem,
   AlphaTopItem,
   SchedulerStatusResponse,
+  JobDailySummaryResponse,
 } from "../types/paperTrading";
 
 const BASE = "/api/admin/paper-trading";
@@ -50,4 +51,7 @@ export const paperTradingApi = {
 
   getSchedulerStatus: () =>
     axiosClient.get<SchedulerStatusResponse>(`${BASE}/scheduler/status`).then((r) => r.data),
+
+  getJobsDailySummary: () =>
+    axiosClient.get<JobDailySummaryResponse>(`${BASE}/jobs/daily-summary`).then((r) => r.data),
 };
