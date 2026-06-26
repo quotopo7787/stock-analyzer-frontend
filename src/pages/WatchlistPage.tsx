@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -80,10 +80,6 @@ export default function WatchlistPage() {
   const [sortMode, setSortMode] = useState<SortMode>("REVIEW_ASC");
   const [dueOnly, setDueOnly] = useState(false);
 
-  useEffect(() => {
-    loadWatchlist();
-  }, []);
-
   const viewItems = useMemo(() => apiItems.map(toViewItem), [apiItems]);
 
   const filteredItems = useMemo(() => {
@@ -131,7 +127,7 @@ export default function WatchlistPage() {
     };
   }, [apiSummary, viewItems]);
 
-  const loadWatchlist = async () => {
+  const loadWatchlist = useCallback(async () => {
     try {
       setLoading(true);
       setErrorMessage("");
@@ -154,7 +150,14 @@ export default function WatchlistPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadWatchlist();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadWatchlist]);
 
   const openThesis = (item: WatchlistViewItem) => {
     if (item.hasThesis && item.thesisId) {

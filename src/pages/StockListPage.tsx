@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -34,11 +34,7 @@ export default function StockListPage() {
   const [exchangeFilter, setExchangeFilter] = useState("ALL");
   const [industryFilter, setIndustryFilter] = useState("ALL");
 
-  useEffect(() => {
-    loadStocks();
-  }, []);
-
-  const loadStocks = async () => {
+  const loadStocks = useCallback(async () => {
     try {
       setLoading(true);
       setErrorMessage("");
@@ -51,7 +47,14 @@ export default function StockListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadStocks();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadStocks]);
 
   const exchangeOptions = useMemo(() => {
     const values = stocks

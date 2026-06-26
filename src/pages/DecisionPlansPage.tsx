@@ -92,33 +92,41 @@ export default function DecisionPlansPage() {
     }
   }, [action, loadSummary, page, status, stockCode]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   useEffect(() => {
-    const queryKey = searchParams.toString();
-    if (!queryKey || handledIntegrationQuery.current === queryKey) return;
-    const stockCodeParam = searchParams.get("stockCode")?.trim().toUpperCase();
-    if (!stockCodeParam) return;
-    handledIntegrationQuery.current = queryKey;
-    setSearchInput(stockCodeParam); setStockCode(stockCodeParam); setPage(0);
+    const timer = window.setTimeout(() => {
+      const queryKey = searchParams.toString();
+      if (!queryKey || handledIntegrationQuery.current === queryKey) return;
+      const stockCodeParam = searchParams.get("stockCode")?.trim().toUpperCase();
+      if (!stockCodeParam) return;
+      handledIntegrationQuery.current = queryKey;
+      setSearchInput(stockCodeParam); setStockCode(stockCodeParam); setPage(0);
 
-    if (searchParams.get("create") === "1") {
-      setEditing(null);
-      setPrefill(readPrefill(searchParams, stockCodeParam));
-      setDialogOpen(true);
-      return;
-    }
-    if (searchParams.get("open") === "1") {
-      void decisionPlanApi.getActiveByStock(stockCodeParam).then((activePlan) => {
-        if (activePlan) {
-          setEditing(activePlan); setPrefill(null); setDialogOpen(true);
-          setToast("Mã này đã có kế hoạch ACTIVE");
-        } else {
-          setPrefill({ stockCode: stockCodeParam, action: "WATCH", status: "ACTIVE", reviewDate: dateAfterDays(30) });
-          setDialogOpen(true);
-        }
-      }).catch((err) => setError(apiErrorMessage(err)));
-    }
+      if (searchParams.get("create") === "1") {
+        setEditing(null);
+        setPrefill(readPrefill(searchParams, stockCodeParam));
+        setDialogOpen(true);
+        return;
+      }
+      if (searchParams.get("open") === "1") {
+        void decisionPlanApi.getActiveByStock(stockCodeParam).then((activePlan) => {
+          if (activePlan) {
+            setEditing(activePlan); setPrefill(null); setDialogOpen(true);
+            setToast("Mã này đã có kế hoạch ACTIVE");
+          } else {
+            setPrefill({ stockCode: stockCodeParam, action: "WATCH", status: "ACTIVE", reviewDate: dateAfterDays(30) });
+            setDialogOpen(true);
+          }
+        }).catch((err) => setError(apiErrorMessage(err)));
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [searchParams]);
 
   const clearIntegrationQuery = () => {
@@ -253,21 +261,24 @@ function PlanDialog({ open, plan, prefill, onClose, onSaved }: {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!open) return;
-    setError("");
-    setForm(plan ? {
-      stockCode: plan.stockCode, action: plan.action, status: plan.status,
-      targetBuyPrice: valueString(plan.targetBuyPrice), fairValue: valueString(plan.fairValue),
-      targetSellPrice: valueString(plan.targetSellPrice), maxPositionPercent: valueString(plan.maxPositionPercent),
-      currentPositionPercent: valueString(plan.currentPositionPercent), reviewDate: plan.reviewDate ?? "",
-      buyConditions: (plan.buyConditions ?? []).join("\n"), sellConditions: (plan.sellConditions ?? []).join("\n"),
-      riskNotes: (plan.riskNotes ?? []).join("\n"), personalNotes: plan.personalNotes ?? "",
-    } : prefill ? {
-      ...emptyForm, stockCode: prefill.stockCode, action: prefill.action ?? "WATCH", status: prefill.status ?? "ACTIVE",
-      reviewDate: prefill.reviewDate ?? dateAfterDays(30), maxPositionPercent: valueString(prefill.maxPositionPercent),
-      buyConditions: (prefill.buyConditions ?? []).join("\n"), sellConditions: (prefill.sellConditions ?? []).join("\n"),
-      riskNotes: (prefill.riskNotes ?? []).join("\n"), personalNotes: prefill.personalNotes ?? "",
-    } : emptyForm);
+    const timer = window.setTimeout(() => {
+      if (!open) return;
+      setError("");
+      setForm(plan ? {
+        stockCode: plan.stockCode, action: plan.action, status: plan.status,
+        targetBuyPrice: valueString(plan.targetBuyPrice), fairValue: valueString(plan.fairValue),
+        targetSellPrice: valueString(plan.targetSellPrice), maxPositionPercent: valueString(plan.maxPositionPercent),
+        currentPositionPercent: valueString(plan.currentPositionPercent), reviewDate: plan.reviewDate ?? "",
+        buyConditions: (plan.buyConditions ?? []).join("\n"), sellConditions: (plan.sellConditions ?? []).join("\n"),
+        riskNotes: (plan.riskNotes ?? []).join("\n"), personalNotes: plan.personalNotes ?? "",
+      } : prefill ? {
+        ...emptyForm, stockCode: prefill.stockCode, action: prefill.action ?? "WATCH", status: prefill.status ?? "ACTIVE",
+        reviewDate: prefill.reviewDate ?? dateAfterDays(30), maxPositionPercent: valueString(prefill.maxPositionPercent),
+        buyConditions: (prefill.buyConditions ?? []).join("\n"), sellConditions: (prefill.sellConditions ?? []).join("\n"),
+        riskNotes: (prefill.riskNotes ?? []).join("\n"), personalNotes: prefill.personalNotes ?? "",
+      } : emptyForm);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [open, plan, prefill]);
 
   const field = (name: keyof FormState) => ({

@@ -27,7 +27,8 @@ export const portfolioApi = {
     return response.data;
   },
   async update(id: number, payload: PortfolioPositionPayload) {
-    const { stockCode: _stockCode, ...body } = payload;
+    const { stockCode: omittedStockCode, ...body } = payload;
+    void omittedStockCode;
     const response = await portfolioClient.put<PortfolioPosition>(`/api/portfolio/positions/${id}`, body);
     return response.data;
   },

@@ -48,18 +48,31 @@ export default function PortfolioPage() {
     await Promise.all([loadPositions(), loadSummary()]);
   }, [loadPositions, loadSummary]);
 
-  useEffect(() => { void loadPositions(); }, [loadPositions]);
-  useEffect(() => { void loadSummary(); }, [loadSummary]);
   useEffect(() => {
-    const queryKey = searchParams.toString();
-    if (!queryKey || handledQuery.current === queryKey) return;
-    const stockCodeParam = searchParams.get("stockCode")?.trim().toUpperCase();
-    if (!stockCodeParam) return;
-    handledQuery.current = queryKey;
-    setSearch(stockCodeParam); setStatus("ACTIVE"); setPage(0);
-    if (searchParams.get("create") === "1") {
-      setEditing(null); setPrefillStockCode(stockCodeParam); setDialogOpen(true);
-    }
+    const timer = window.setTimeout(() => {
+      void loadPositions();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadPositions]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadSummary();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadSummary]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const queryKey = searchParams.toString();
+      if (!queryKey || handledQuery.current === queryKey) return;
+      const stockCodeParam = searchParams.get("stockCode")?.trim().toUpperCase();
+      if (!stockCodeParam) return;
+      handledQuery.current = queryKey;
+      setSearch(stockCodeParam); setStatus("ACTIVE"); setPage(0);
+      if (searchParams.get("create") === "1") {
+        setEditing(null); setPrefillStockCode(stockCodeParam); setDialogOpen(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [searchParams]);
 
   const filtered = useMemo(() => {
@@ -172,10 +185,13 @@ function PositionDialog({ open, position, prefillStockCode, onClose, onSaved }: 
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!open) return;
-    setStockCode(position?.stockCode ?? prefillStockCode); setDecisionPlanId(valueString(position?.linkedDecisionPlanId));
-    setQuantity(valueString(position?.quantity)); setAverageCost(valueString(position?.averageCost));
-    setNotes(position?.notes ?? ""); setError("");
+    const timer = window.setTimeout(() => {
+      if (!open) return;
+      setStockCode(position?.stockCode ?? prefillStockCode); setDecisionPlanId(valueString(position?.linkedDecisionPlanId));
+      setQuantity(valueString(position?.quantity)); setAverageCost(valueString(position?.averageCost));
+      setNotes(position?.notes ?? ""); setError("");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [open, position, prefillStockCode]);
 
   const save = async () => {

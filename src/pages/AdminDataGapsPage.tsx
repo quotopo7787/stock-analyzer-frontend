@@ -112,7 +112,10 @@ export default function AdminDataGapsPage() {
   }, [page, reason]);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const loadPriorityQueue = useCallback(async () => {
@@ -134,7 +137,10 @@ export default function AdminDataGapsPage() {
   }, [priorityFilter, prioritySearch, prioritySource]);
 
   useEffect(() => {
-    void loadPriorityQueue();
+    const timer = window.setTimeout(() => {
+      void loadPriorityQueue();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadPriorityQueue]);
 
   const openAction = (item: OpportunityDataGap) => {
@@ -685,12 +691,14 @@ function ShareInfoDialog({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (item) {
+    const timer = window.setTimeout(() => {
+      if (!item) return;
       setYear(item.missingYears[0] ?? 2025);
       setShares("");
       setNote("");
       setError("");
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [item]);
 
   const save = async () => {
@@ -785,12 +793,14 @@ function StockPriceDialog({
   const isFuturePriceReason = item?.primaryReason === "FUTURE_PRICE_DATE";
 
   useEffect(() => {
-    if (item) {
+    const timer = window.setTimeout(() => {
+      if (!item) return;
       setPriceDate(todayIso);
       setClosePrice("");
       setNote("");
       setError("");
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [item]);
 
   const save = async () => {
@@ -1118,7 +1128,7 @@ function VietstockFinancialStatementDialog({
     (row) => hasExtractedFinancialValue(row.extracted) && !row.warnings.includes("UNIT_UNCERTAIN")
   ) ?? [];
 
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -1129,7 +1139,7 @@ function VietstockFinancialStatementDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const openVietstockBrowser = async () => {
     try {
@@ -1240,9 +1250,11 @@ function VietstockFinancialStatementDialog({
   };
 
   useEffect(() => {
-    void checkSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.stockCode]);
+    const timer = window.setTimeout(() => {
+      void checkSession();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [checkSession]);
 
   return (
     <Dialog open onClose={saving ? undefined : onClose} fullWidth maxWidth="lg">

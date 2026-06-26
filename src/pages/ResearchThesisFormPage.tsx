@@ -68,7 +68,10 @@ export default function ResearchThesisFormPage() {
   const [watchlistLoading, setWatchlistLoading] = useState(false);
 
   useEffect(() => {
-    setDraft(initialDraft);
+    const timer = window.setTimeout(() => {
+      setDraft(initialDraft);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [initialDraft]);
 
   useEffect(() => {

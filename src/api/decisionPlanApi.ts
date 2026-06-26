@@ -49,7 +49,8 @@ export const decisionPlanApi = {
   },
 
   async update(id: number, payload: DecisionPlanPayload) {
-    const { stockCode: _stockCode, ...body } = payload;
+    const { stockCode: omittedStockCode, ...body } = payload;
+    void omittedStockCode;
     const response = await decisionPlanClient.put<DecisionPlanDetail>(`/api/decision-plans/${id}`, body);
     return response.data;
   },

@@ -102,10 +102,13 @@ export default function ValuationScenariosPage() {
   const [applyingItem, setApplyingItem] = useState<ValuationScenarioListItem | null>(null);
 
   useEffect(() => {
-    const code = searchParams.get("stockCode")?.trim().toUpperCase() ?? "";
-    setStockInput(code);
-    setStockCode(code);
-    setPage(0);
+    const timer = window.setTimeout(() => {
+      const code = searchParams.get("stockCode")?.trim().toUpperCase() ?? "";
+      setStockInput(code);
+      setStockCode(code);
+      setPage(0);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [searchParams]);
 
   const load = useCallback(async () => {
@@ -126,7 +129,12 @@ export default function ValuationScenariosPage() {
     }
   }, [method, page, status, stockCode]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const applyStockFilter = () => {
     const code = stockInput.trim().toUpperCase();
@@ -428,31 +436,34 @@ function ValuationScenarioDialog({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!open) return;
-    setError("");
-    setForm(scenario ? {
-      stockCode: scenario.stockCode,
-      linkedDecisionPlanId: valueString(scenario.linkedDecisionPlanId),
-      valuationYear: valueString(scenario.valuationYear),
-      method: scenario.method,
-      scenarioName: scenario.scenarioName,
-      status: scenario.status,
-      eps: valueString(scenario.eps),
-      bookValuePerShare: valueString(scenario.bookValuePerShare),
-      peMultiple: valueString(scenario.peMultiple),
-      pbMultiple: valueString(scenario.pbMultiple),
-      fairValue: valueString(scenario.fairValue),
-      targetBuyPrice: valueString(scenario.targetBuyPrice),
-      targetSellPrice: valueString(scenario.targetSellPrice),
-      marginOfSafetyPercent: valueString(scenario.marginOfSafetyPercent),
-      assumptions: (scenario.assumptions ?? []).join("\n"),
-      sourceNote: scenario.sourceNote ?? "",
-      notes: scenario.notes ?? "",
-    } : {
-      ...emptyForm,
-      stockCode: defaultStockCode,
-      valuationYear: String(currentYear - 1),
-    });
+    const timer = window.setTimeout(() => {
+      if (!open) return;
+      setError("");
+      setForm(scenario ? {
+        stockCode: scenario.stockCode,
+        linkedDecisionPlanId: valueString(scenario.linkedDecisionPlanId),
+        valuationYear: valueString(scenario.valuationYear),
+        method: scenario.method,
+        scenarioName: scenario.scenarioName,
+        status: scenario.status,
+        eps: valueString(scenario.eps),
+        bookValuePerShare: valueString(scenario.bookValuePerShare),
+        peMultiple: valueString(scenario.peMultiple),
+        pbMultiple: valueString(scenario.pbMultiple),
+        fairValue: valueString(scenario.fairValue),
+        targetBuyPrice: valueString(scenario.targetBuyPrice),
+        targetSellPrice: valueString(scenario.targetSellPrice),
+        marginOfSafetyPercent: valueString(scenario.marginOfSafetyPercent),
+        assumptions: (scenario.assumptions ?? []).join("\n"),
+        sourceNote: scenario.sourceNote ?? "",
+        notes: scenario.notes ?? "",
+      } : {
+        ...emptyForm,
+        stockCode: defaultStockCode,
+        valuationYear: String(currentYear - 1),
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [defaultStockCode, open, scenario]);
 
   const preview = useMemo(() => {

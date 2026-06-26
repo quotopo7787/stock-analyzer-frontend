@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -145,6 +145,7 @@ const sortOptions = [
 
 export default function OpportunitiesPage() {
   const navigate = useNavigate();
+  const didInitialLoad = useRef(false);
   const [filters, setFilters] = useState<OpportunityQueryParams>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<OpportunityQueryParams>(defaultFilters);
   const [data, setData] = useState<OpportunityWrappedResponse | null>(null);
@@ -158,11 +159,6 @@ export default function OpportunitiesPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
 
-  useEffect(() => {
-    loadOpportunities(defaultFilters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const items = data?.items ?? [];
   const summary = data?.summary;
   const meta = data?.meta;
@@ -171,7 +167,7 @@ export default function OpportunitiesPage() {
 
   const topIndustries = useMemo(() => topEntries(summary?.industryCounts, 5), [summary]);
 
-  const loadOpportunities = async (nextFilters: OpportunityQueryParams) => {
+  const loadOpportunities = useCallback(async (nextFilters: OpportunityQueryParams) => {
     if (nextFilters.fromYear > nextFilters.toYear) {
       setErrorMessage("Giai đoạn lọc không hợp lệ.");
       return;
@@ -190,7 +186,16 @@ export default function OpportunitiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (didInitialLoad.current) return;
+    didInitialLoad.current = true;
+    const timer = window.setTimeout(() => {
+      void loadOpportunities(defaultFilters);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadOpportunities]);
 
   const updateFilter = (field: keyof OpportunityQueryParams, value: string | number | boolean) => {
     setFilters((prev) => ({

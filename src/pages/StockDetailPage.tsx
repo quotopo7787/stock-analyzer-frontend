@@ -61,18 +61,21 @@ export default function StockDetailPage() {
   }, []);
 
   useEffect(() => {
-    const routeStockCode = code?.trim().toUpperCase();
-    if (!routeStockCode) return;
+    const timer = window.setTimeout(() => {
+      const routeStockCode = code?.trim().toUpperCase();
+      if (!routeStockCode) return;
 
-    setStockCode(routeStockCode);
+      setStockCode(routeStockCode);
 
-    const key = `${routeStockCode}:${year}`;
-    const lastLoadedAt = recentAutoLoads.get(key) ?? 0;
-    const now = Date.now();
-    if (now - lastLoadedAt < AUTO_LOAD_DEDUP_MS) return;
-    recentAutoLoads.set(key, now);
+      const key = `${routeStockCode}:${year}`;
+      const lastLoadedAt = recentAutoLoads.get(key) ?? 0;
+      const now = Date.now();
+      if (now - lastLoadedAt < AUTO_LOAD_DEDUP_MS) return;
+      recentAutoLoads.set(key, now);
 
-    void loadSnapshotFor(routeStockCode, year);
+      void loadSnapshotFor(routeStockCode, year);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [code, loadSnapshotFor, year]);
 
   const loadSnapshot = () => {

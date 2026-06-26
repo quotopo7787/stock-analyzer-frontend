@@ -1,4 +1,4 @@
-import { type ChangeEvent, useCallback, useEffect, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   Alert,
@@ -51,6 +51,7 @@ const defaultForm: ReviewForm = {
 
 export default function PortfolioAllocationPage() {
   const navigate = useNavigate();
+  const didInitialReview = useRef(false);
   const [form, setForm] = useState<ReviewForm>(defaultForm);
   const [data, setData] = useState<PortfolioAllocationReviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,10 +76,13 @@ export default function PortfolioAllocationPage() {
   }, [form]);
 
   useEffect(() => {
-    void review(formPayload(defaultForm));
-    // Chỉ auto-load lần đầu; các lần sau user bấm Review phân bổ.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (didInitialReview.current) return;
+    didInitialReview.current = true;
+    const timer = window.setTimeout(() => {
+      void review(formPayload(defaultForm));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [review]);
 
   const submit = () => {
     const validation = validateForm(form);

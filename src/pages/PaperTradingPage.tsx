@@ -58,6 +58,11 @@ function fmt(v: number | null | undefined, digits = 2): string {
   return v.toFixed(digits);
 }
 
+function statFmt(v: number | null | undefined, digits = 2): string {
+  if (v == null || Number.isNaN(v)) return "—";
+  return v.toFixed(digits);
+}
+
 export default function PaperTradingPage() {
   const [daily, setDaily] = useState<DailyMonitoringResponse | null>(null);
   const [check, setCheck] = useState<DailyCheckResponse | null>(null);
@@ -101,7 +106,12 @@ export default function PaperTradingPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   if (loading && !daily) {
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -252,6 +262,26 @@ export default function PaperTradingPage() {
                 <Typography variant="h6">{alpha.evaluationCount ?? alpha.count ?? 0}</Typography>
               </Box>
             </Stack>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gap: 1.5,
+                mt: 2,
+              }}
+            >
+              <StatMetric label="Độ lệch chuẩn mẫu" value={`${statFmt(alpha.sampleStdDevAlpha, 4)}%`} />
+              <StatMetric label="Sai số chuẩn alpha" value={`${statFmt(alpha.alphaStdError, 4)}%`} />
+              <StatMetric
+                label="Khoảng tin cậy 95%"
+                value={`${statFmt(alpha.alphaConfidenceIntervalLow, 4)}% → ${statFmt(alpha.alphaConfidenceIntervalHigh, 4)}%`}
+              />
+              <StatMetric label="Information ratio lite" value={statFmt(alpha.informationRatioLite, 4)} />
+              <StatMetric label="Chênh TB - trung vị" value={`${statFmt(alpha.meanMedianSpreadAlpha, 4)}%`} />
+              <StatMetric label="Đã benchmark" value={`${alpha.benchmarkedCount ?? 0}/${alpha.evaluationCount ?? alpha.count ?? 0}`} />
+              <StatMetric label="Thiếu benchmark" value={`${alpha.missingBenchmarkCount ?? 0}`} />
+              <StatMetric label="Tín hiệu mở" value={`${alpha.openSignalCount ?? 0}`} />
+            </Box>
             {(alpha.averageAlpha ?? 0) < 0 && (
               <Alert severity="warning" sx={{ mt: 1.5 }} icon={false}>
                 Alpha âm nghĩa là tín hiệu đang kém VNINDEX trong mẫu hiện tại.
@@ -520,5 +550,14 @@ function StatusDot({ on }: { on: boolean }) {
         bgcolor: on ? "success.main" : "text.disabled",
       }}
     />
+  );
+}
+
+function StatMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>{value}</Typography>
+    </Box>
   );
 }

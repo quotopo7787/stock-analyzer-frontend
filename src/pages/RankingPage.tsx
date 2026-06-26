@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -37,6 +37,7 @@ const currentYear = new Date().getFullYear();
 
 export default function RankingPage() {
   const navigate = useNavigate();
+  const didInitialLoad = useRef(false);
 
   const [fromYear, setFromYear] = useState(currentYear - 3);
   const [toYear, setToYear] = useState(currentYear - 1);
@@ -56,11 +57,6 @@ export default function RankingPage() {
   const hasNextPage = meta.totalElements !== undefined
     ? (page + 1) * size < meta.totalElements
     : items.length === size;
-
-  useEffect(() => {
-    loadRankings(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const summary = useMemo(() => {
     const validScores = items
@@ -88,7 +84,7 @@ export default function RankingPage() {
     };
   }, [items]);
 
-  const loadRankings = async (targetPage: number = page, targetSize: number = size) => {
+  const loadRankings = useCallback(async (targetPage: number = page, targetSize: number = size) => {
     if (!fromYear || !toYear || fromYear > toYear) {
       setErrorMessage("Giai đoạn xếp hạng không hợp lệ.");
       return;
@@ -120,7 +116,16 @@ export default function RankingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fromYear, page, size, toYear]);
+
+  useEffect(() => {
+    if (didInitialLoad.current) return;
+    didInitialLoad.current = true;
+    const timer = window.setTimeout(() => {
+      void loadRankings(0);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadRankings]);
 
   const formatNumber = (value?: number | null, maximumFractionDigits = 2) => {
     if (value === undefined || value === null || Number.isNaN(value)) return "-";

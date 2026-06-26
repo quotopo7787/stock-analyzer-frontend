@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -31,6 +31,7 @@ import type {
 const todayIso = new Date().toISOString().slice(0, 10);
 
 export default function DataQualityPage() {
+  const didInitialLoad = useRef(false);
   const [query, setQuery] = useState<DataQualityQuery>({
     exchange: "HOSE",
     fromYear: 2023,
@@ -45,11 +46,6 @@ export default function DataQualityPage() {
   const [referenceCoverage, setReferenceCoverage] = useState<ReferenceCoverage[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const referenceSummary = useMemo(() => {
     if (!summary) return [];
@@ -78,7 +74,7 @@ export default function DataQualityPage() {
     ];
   }, [summary]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setErrorMessage("");
@@ -98,7 +94,16 @@ export default function DataQualityPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, referenceType]);
+
+  useEffect(() => {
+    if (didInitialLoad.current) return;
+    didInitialLoad.current = true;
+    const timer = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadData]);
 
   const updateQuery = (field: keyof DataQualityQuery, value: string | number) => {
     setQuery((prev) => ({

@@ -37,10 +37,13 @@ export default function InvestmentThesisPage() {
   const [activePlanCodes, setActivePlanCodes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setDrafts(researchThesisDraftStorage.getAll());
-    void decisionPlanApi.listAllActive()
-      .then((plans) => setActivePlanCodes(new Set(plans.map((plan) => plan.stockCode.toUpperCase()))))
-      .catch((err) => console.error("Không tải được ACTIVE decision plans", err));
+    const timer = window.setTimeout(() => {
+      setDrafts(researchThesisDraftStorage.getAll());
+      void decisionPlanApi.listAllActive()
+        .then((plans) => setActivePlanCodes(new Set(plans.map((plan) => plan.stockCode.toUpperCase()))))
+        .catch((err) => console.error("Không tải được ACTIVE decision plans", err));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const openDecisionPlanForThesis = (thesis: InvestmentThesis) => {

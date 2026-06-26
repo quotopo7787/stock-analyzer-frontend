@@ -58,6 +58,7 @@ export interface AlphaOverviewResponse {
   group: string;
   count: number;
   evaluationCount: number;
+  evaluatedCount?: number;
   benchmarkedCount: number;
   missingBenchmarkCount: number;
   averageSignalReturn: number | null;
@@ -68,6 +69,13 @@ export interface AlphaOverviewResponse {
   bestAlpha: number | null;
   worstAlpha: number | null;
   alphaStandardDeviation: number | null;
+  sampleStdDevAlpha: number | null;
+  alphaStdError: number | null;
+  alphaConfidenceIntervalLow: number | null;
+  alphaConfidenceIntervalHigh: number | null;
+  informationRatioLite: number | null;
+  meanMedianSpreadAlpha: number | null;
+  openSignalCount?: number;
   alphaConfidenceLabel: string;
   alphaConfidenceBaseLabel?: string;
   alphaConfidenceWarnings?: string[];

@@ -59,7 +59,12 @@ export default function DashboardPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadDashboard();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadDashboard]);
 
   const warnings = useMemo(() => positions.filter((item) => item.positionWarning || item.priceDataWarning), [positions]);
   const duePlans = useMemo(() => plans.filter(isDueReview).slice(0, 5), [plans]);
