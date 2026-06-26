@@ -69,6 +69,10 @@ export interface AlphaOverviewResponse {
   worstAlpha: number | null;
   alphaStandardDeviation: number | null;
   alphaConfidenceLabel: string;
+  alphaConfidenceBaseLabel?: string;
+  alphaConfidenceWarnings?: string[];
+  alphaConfidenceDowngraded?: boolean;
+  alphaConfidenceDowngradeReasons?: string[];
   interpretation: string[];
 }
 

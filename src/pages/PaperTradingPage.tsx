@@ -39,6 +39,14 @@ const gradeLabel: Record<string, string> = {
   STATISTICALLY_USEFUL: "Có giá trị thống kê",
   TRACK_RECORD_READY: "Đủ track record",
 };
+const confidenceWarningLabel: Record<string, string> = {
+  OUTLIER_RISK: "Có rủi ro mẫu bị méo bởi điểm ngoại lai.",
+  HIGH_VARIANCE: "Alpha biến động lớn so với alpha trung bình.",
+  MIXED_SIGNAL: "Trung bình và trung vị alpha chưa đồng thuận.",
+  LOW_SAMPLE: "Số mẫu còn thấp, chưa nên kết luận mạnh.",
+  PAPER_TRADING_LIMITATION: "Chưa tính phí giao dịch, trượt giá và thanh khoản.",
+  NEAR_RANDOM_WIN_RATE: "Tỷ lệ thắng gần ngẫu nhiên (45-55%).",
+};
 const severityIcon: Record<string, React.ReactNode> = {
   CRITICAL: <ErrorOutlined color="error" fontSize="small" />,
   WARNING: <WarningAmberOutlined color="warning" fontSize="small" />,
@@ -227,7 +235,17 @@ export default function PaperTradingPage() {
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Độ tin cậy</Typography>
-                <Chip label={alpha.alphaConfidenceLabel ?? "—"} size="small" variant="outlined" />
+                <Chip
+                  label={alpha.alphaConfidenceLabel ?? "—"}
+                  size="small"
+                  variant="outlined"
+                  color={alpha.alphaConfidenceDowngraded ? "warning" : "default"}
+                />
+                {alpha.alphaConfidenceDowngraded && alpha.alphaConfidenceBaseLabel && (
+                  <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
+                    (hạ từ {alpha.alphaConfidenceBaseLabel})
+                  </Typography>
+                )}
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Mẫu</Typography>
@@ -242,6 +260,15 @@ export default function PaperTradingPage() {
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
               Alpha chỉ tính trên tín hiệu đã đủ hạn đánh giá. 30D/90D sẽ xuất hiện sau khi tín hiệu đủ ngày.
             </Typography>
+            {alpha.alphaConfidenceWarnings && alpha.alphaConfidenceWarnings.length > 0 && (
+              <Stack spacing={0.5} sx={{ mt: 1 }}>
+                {alpha.alphaConfidenceWarnings.map((w) => (
+                  <Typography key={w} variant="caption" color="warning.main">
+                    ⚠ {confidenceWarningLabel[w] ?? w}
+                  </Typography>
+                ))}
+              </Stack>
+            )}
           </CardContent>
         </Card>
       )}
