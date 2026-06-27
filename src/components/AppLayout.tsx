@@ -28,7 +28,7 @@ export default function AppLayout() {
   const now = new Date();
 
   return <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
-    <AppBar position="fixed" color="inherit" elevation={0} sx={{ ml: `${drawerWidth}px`, width: `calc(100% - ${drawerWidth}px)`, borderBottom: 1, borderColor: "divider", bgcolor: "rgba(255,255,255,.92)", backdropFilter: "blur(10px)" }}>
+    <AppBar position="fixed" color="inherit" elevation={0} sx={{ ml: `${drawerWidth}px`, width: `calc(100% - ${drawerWidth}px)`, borderBottom: "1px solid", borderColor: "rgba(15, 23, 42, 0.07)", bgcolor: "rgba(255,255,255,.92)", backdropFilter: "blur(10px)" }}>
       <Toolbar sx={{ minHeight: "68px !important", justifyContent: "flex-end", gap: 1 }}>
         <IconButton aria-label="Giao diện sáng"><LightModeOutlined /></IconButton>
         <IconButton aria-label="Thông báo"><Badge badgeContent={3} color="primary"><NotificationsNoneOutlined /></Badge></IconButton>
@@ -39,23 +39,68 @@ export default function AppLayout() {
       </Toolbar>
     </AppBar>
 
-    <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: "border-box", borderColor: "divider", bgcolor: "#fff" } }}>
-      <Toolbar sx={{ minHeight: "68px !important", px: "22px !important", borderBottom: 1, borderColor: "divider" }}>
-        <Box sx={{ width: 36, height: 36, borderRadius: 1.5, bgcolor: "primary.main", color: "white", display: "grid", placeItems: "center", mr: 1.5 }}><ShowChart /></Box>
-        <Typography variant="h6" color="primary.main" sx={{ whiteSpace: "nowrap" }}>Stock Analyzer</Typography>
+    <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: "border-box", borderRight: "1px solid rgba(15, 23, 42, 0.07)", bgcolor: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" } }}>
+      <Toolbar sx={{ minHeight: "68px !important", px: "22px !important", borderBottom: "1px solid", borderColor: "rgba(15, 23, 42, 0.06)" }}>
+        <Box
+          sx={{
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #1d7fff 0%, #0b55c6 100%)",
+            color: "white",
+            display: "grid",
+            placeItems: "center",
+            mr: 1.5,
+            boxShadow: "0 10px 22px rgba(13, 71, 161, 0.18)",
+            "& svg": { fontSize: 21 },
+          }}
+        >
+          <ShowChart />
+        </Box>
+        <Typography variant="h6" color="text.primary" sx={{ whiteSpace: "nowrap", fontWeight: 800, letterSpacing: 0 }}>Stock Analyzer</Typography>
       </Toolbar>
       <Box sx={{ display: "flex", flexDirection: "column", flex: 1, p: 1.5 }}>
-        <List sx={{ pt: 1 }}>
+        <List sx={{ pt: 1.2 }}>
           {navItems.map((item) => {
             const active = item.to === "/" ? location.pathname === item.to : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
-            return <ListItemButton key={item.to} component={Link} to={item.to} selected={active} sx={{ borderRadius: 1.5, mb: 0.6, minHeight: 50, px: 1.5, "&.Mui-selected": { bgcolor: "#eaf3ff", color: "primary.dark" }, "&.Mui-selected:hover": { bgcolor: "#e3efff" } }}>
-              <ListItemIcon sx={{ minWidth: 42, color: active ? "primary.main" : "#5d6a7e" }}>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: active ? 700 : 500, fontSize: 14 } } }} />
+            return <ListItemButton
+              key={item.to}
+              component={Link}
+              to={item.to}
+              selected={active}
+              sx={{
+                borderRadius: 3,
+                mb: 0.45,
+                minHeight: 48,
+                px: 1.15,
+                color: active ? "primary.dark" : "#162033",
+                transition: "background-color .18s ease, color .18s ease, transform .18s ease",
+                "&:hover": { bgcolor: "#f4f8ff", transform: "translateX(2px)" },
+                "&.Mui-selected": { bgcolor: "#eaf3ff", color: "primary.dark" },
+                "&.Mui-selected:hover": { bgcolor: "#e4efff" },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 40,
+                  color: active ? "primary.main" : "#68758a",
+                  "& svg": {
+                    fontSize: 22,
+                    p: active ? 0.55 : 0,
+                    borderRadius: active ? 2 : 0,
+                    bgcolor: active ? "rgba(25, 118, 210, 0.10)" : "transparent",
+                    boxSizing: "content-box",
+                  },
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: active ? 750 : 560, fontSize: 14, letterSpacing: 0 } } }} />
             </ListItemButton>;
           })}
         </List>
         <Box sx={{ mt: "auto" }}>
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fbff", boxShadow: "none" }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fbff", boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)", borderRadius: 3 }}>
             <Stack direction="row" spacing={1.2} sx={{ alignItems: "center" }}>
               <Box sx={{ width: 34, height: 34, borderRadius: 1.2, bgcolor: "white", color: "primary.main", display: "grid", placeItems: "center", border: 1, borderColor: "divider" }}><SignalCellularAlt fontSize="small" /></Box>
               <Box sx={{ minWidth: 0, flex: 1 }}><Typography variant="body2" sx={{ fontWeight: 650 }}>Dữ liệu cập nhật</Typography><Typography variant="caption" color="text.secondary">{now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} {now.toLocaleDateString("vi-VN")}</Typography></Box>
