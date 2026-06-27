@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -165,7 +165,6 @@ const sortOptions = [
 
 export default function OpportunitiesPage() {
   const navigate = useNavigate();
-  const didInitialLoad = useRef(false);
   const [filters, setFilters] = useState<OpportunityQueryParams>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<OpportunityQueryParams>(defaultFilters);
   const [data, setData] = useState<OpportunityWrappedResponse | null>(null);
@@ -212,8 +211,6 @@ export default function OpportunitiesPage() {
   }, []);
 
   useEffect(() => {
-    if (didInitialLoad.current) return;
-    didInitialLoad.current = true;
     const timer = window.setTimeout(() => {
       void loadOpportunities(defaultFilters);
     }, 0);

@@ -17,6 +17,7 @@ import PortfolioPage from "./pages/PortfolioPage";
 import PortfolioAllocationPage from "./pages/PortfolioAllocationPage";
 import ValuationScenariosPage from "./pages/ValuationScenariosPage";
 import PaperTradingPage from "./pages/PaperTradingPage";
+import BacktestPage from "./pages/BacktestPage";
 import RealtimePricePage from "./pages/RealtimePricePage";
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
           <Route path="portfolio" element={<PortfolioPage />} />
           <Route path="portfolio-allocation" element={<PortfolioAllocationPage />} />
           <Route path="paper-trading" element={<PaperTradingPage />} />
+          <Route path="backtest" element={<BacktestPage />} />
           <Route path="realtime" element={<RealtimePricePage />} />
         </Route>
       </Routes>

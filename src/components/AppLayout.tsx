@@ -20,6 +20,7 @@ const navItems = [
   { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
   { label: "Phân bổ vốn", to: "/portfolio-allocation", icon: <AccountBalanceWalletOutlined /> },
   { label: "Paper Trading", to: "/paper-trading", icon: <ScienceOutlined /> },
+  { label: "Backtest tín hiệu", to: "/backtest", icon: <ScienceOutlined /> },
   { label: "Bảng giá realtime", to: "/realtime", icon: <ShowChart /> },
 ];
 
@@ -28,7 +29,19 @@ export default function AppLayout() {
   const now = new Date();
 
   return <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
-    <AppBar position="fixed" color="inherit" elevation={0} sx={{ ml: `${drawerWidth}px`, width: `calc(100% - ${drawerWidth}px)`, borderBottom: "1px solid", borderColor: "rgba(15, 23, 42, 0.07)", bgcolor: "rgba(255,255,255,.92)", backdropFilter: "blur(10px)" }}>
+    <AppBar
+      position="fixed"
+      color="inherit"
+      elevation={0}
+      sx={{
+        ml: `${drawerWidth}px`,
+        width: `calc(100% - ${drawerWidth}px)`,
+        borderBottom: 0,
+        bgcolor: "rgba(255,255,255,.92)",
+        backdropFilter: "blur(10px)",
+        boxShadow: "inset 0 -1px 0 rgba(15, 23, 42, 0.045)",
+      }}
+    >
       <Toolbar sx={{ minHeight: "68px !important", justifyContent: "flex-end", gap: 1 }}>
         <IconButton aria-label="Giao diện sáng"><LightModeOutlined /></IconButton>
         <IconButton aria-label="Thông báo"><Badge badgeContent={3} color="primary"><NotificationsNoneOutlined /></Badge></IconButton>
@@ -39,8 +52,42 @@ export default function AppLayout() {
       </Toolbar>
     </AppBar>
 
-    <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: "border-box", borderRight: "1px solid rgba(15, 23, 42, 0.07)", bgcolor: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" } }}>
-      <Toolbar sx={{ minHeight: "68px !important", px: "22px !important", borderBottom: "1px solid", borderColor: "rgba(15, 23, 42, 0.06)" }}>
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: drawerWidth,
+        flexShrink: 0,
+        [`& .MuiDrawer-paper`]: {
+          width: drawerWidth,
+          boxSizing: "border-box",
+          borderRight: 0,
+          bgcolor: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+          position: "relative",
+          overflow: "hidden",
+          "&::after": {
+            content: '""',
+            position: "absolute",
+            top: 68,
+            right: 0,
+            bottom: 0,
+            width: 1,
+            background: "linear-gradient(180deg, rgba(15, 23, 42, 0), rgba(15, 23, 42, 0.055) 18%, rgba(15, 23, 42, 0.045))",
+            pointerEvents: "none",
+          },
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 68,
+            left: 22,
+            right: 18,
+            height: 1,
+            background: "linear-gradient(90deg, rgba(15, 23, 42, 0), rgba(15, 23, 42, 0.045) 18%, rgba(15, 23, 42, 0.035) 72%, rgba(15, 23, 42, 0))",
+            pointerEvents: "none",
+          },
+        },
+      }}
+    >
+      <Toolbar sx={{ minHeight: "68px !important", px: "22px !important", borderBottom: 0 }}>
         <Box
           sx={{
             width: 38,
