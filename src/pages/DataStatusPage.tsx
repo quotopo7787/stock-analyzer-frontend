@@ -30,6 +30,7 @@ export default function DataStatusPage() {
   const [history, setHistory] = useState<BatchJobRun[]>([]);
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [recalculatingChanged, setRecalculatingChanged] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -90,6 +91,34 @@ export default function DataStatusPage() {
     }
   };
 
+  const recalculateChangedOpportunities = async () => {
+    try {
+      setRecalculatingChanged(true);
+      setMessage("");
+      setErrorMessage("");
+
+      const response = await adminSnapshotApi.recalculateChangedOpportunities(200);
+      if (response.status === "SKIPPED") {
+        setMessage(response.message ?? "Job refresh thay đổi đã được bỏ qua.");
+      } else {
+        const failedCount = response.failedCount ?? 0;
+        const durationText = response.durationMs ? ` trong ${formatNumber(response.durationMs, 0)}ms` : "";
+        setMessage(
+          `Đã refresh phần thay đổi: ${formatNumber(response.processedCount, 0)} mã, lỗi ${formatNumber(
+            failedCount,
+            0
+          )}${durationText}.`
+        );
+      }
+      await loadStatus();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage("Refresh phần thay đổi thất bại.");
+    } finally {
+      setRecalculatingChanged(false);
+    }
+  };
+
   return (
     <Box sx={{ textAlign: "left" }}>
       <Stack
@@ -111,23 +140,32 @@ export default function DataStatusPage() {
             variant="outlined"
             startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
             onClick={loadStatus}
-            disabled={loading || recalculating}
+            disabled={loading || recalculating || recalculatingChanged}
           >
             Refresh trạng thái
           </Button>
           <Button
             variant="contained"
+            color="primary"
+            startIcon={recalculatingChanged ? <CircularProgress size={16} /> : <SyncIcon />}
+            onClick={recalculateChangedOpportunities}
+            disabled={loading || recalculating || recalculatingChanged}
+          >
+            Recalculate phần thay đổi
+          </Button>
+          <Button
+            variant="outlined"
             color="warning"
             startIcon={recalculating ? <CircularProgress size={16} /> : <SyncIcon />}
             onClick={recalculateOpportunities}
-            disabled={loading || recalculating}
+            disabled={loading || recalculating || recalculatingChanged}
           >
-            Recalculate Opportunities
+            Recalculate toàn bộ
           </Button>
         </Stack>
       </Stack>
 
-      {(loading || recalculating) && <LinearProgress sx={{ mb: 2 }} />}
+      {(loading || recalculating || recalculatingChanged) && <LinearProgress sx={{ mb: 2 }} />}
 
       {message && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>

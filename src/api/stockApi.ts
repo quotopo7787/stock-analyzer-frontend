@@ -1,5 +1,5 @@
 import axiosClient from "./axiosClient";
-import type { Stock } from "../types/stock";
+import type { Stock, StockPricePoint } from "../types/stock";
 
 /**
  * Nhóm API liên quan đến cổ phiếu.
@@ -24,6 +24,13 @@ export const stockApi = {
    */
   getByCode: async (code: string): Promise<Stock> => {
     const response = await axiosClient.get<Stock>(`/api/stocks/${code}`);
+    return response.data;
+  },
+
+  getPriceHistory: async (code: string, days = 365): Promise<StockPricePoint[]> => {
+    const response = await axiosClient.get<StockPricePoint[]>(`/api/stock-prices/${code}/history`, {
+      params: { days },
+    });
     return response.data;
   },
 };

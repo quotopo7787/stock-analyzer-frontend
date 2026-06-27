@@ -43,10 +43,15 @@ export interface RecalculateResponse {
   fromYear?: number | null;
   toYear?: number | null;
   recentPriceDays?: number | null;
+  totalStockCount?: number | null;
+  eligibleStockCount?: number | null;
   processedCount: number;
+  skippedCount?: number | null;
+  failedCount?: number | null;
   errorCount: number;
   durationMs: number;
   message?: string | null;
+  warnings?: string[];
   errors: string[];
   generatedAt: string;
 }

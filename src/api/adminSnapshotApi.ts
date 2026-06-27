@@ -43,4 +43,11 @@ export const adminSnapshotApi = {
     const response = await axiosClient.post<RecalculateResponse>("/api/admin/recalculate/opportunities");
     return response.data;
   },
+
+  recalculateChangedOpportunities: async (limit = 200): Promise<RecalculateResponse> => {
+    const response = await axiosClient.post<RecalculateResponse>("/api/admin/recalculate/opportunities/changed", null, {
+      params: compactParams({ fromYear: 2023, toYear: 2025, recentPriceDays: 30, limit }),
+    });
+    return response.data;
+  },
 };

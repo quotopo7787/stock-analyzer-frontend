@@ -105,7 +105,12 @@ export default function RealtimePricePage() {
     }
   }, []);
 
-  useEffect(() => { fetchCredentials(); }, [fetchCredentials]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchCredentials();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchCredentials]);
 
   useEffect(() => {
     if (!credentials?.available || !credentials.token || !credentials.investorId) return;

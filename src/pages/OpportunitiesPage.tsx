@@ -12,7 +12,9 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Drawer,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   IconButton,
   LinearProgress,
@@ -40,7 +42,6 @@ import FilterAltOffOutlinedIcon from "@mui/icons-material/FilterAltOffOutlined";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import SearchIcon from "@mui/icons-material/Search";
 import ScienceOutlinedIcon from "@mui/icons-material/ScienceOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
@@ -53,6 +54,7 @@ import {
   researchThesisDraftStorage,
 } from "../api/researchThesisDraftStorage";
 import { watchlistApi } from "../api/watchlistApi";
+import { stockApi } from "../api/stockApi";
 import type {
   OpportunityDetailItem,
   OpportunityQueryParams,
@@ -60,9 +62,12 @@ import type {
   OpportunityWrappedResponse,
 } from "../types/opportunities";
 import type { ResearchThesisDraft, ResearchThesisStatus } from "../types/researchThesis";
+import type { StockPricePoint } from "../types/stock";
 
 type BadgeColor = "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info";
 type MetricTone = "primary" | "success" | "warning" | "error";
+type PriceChartRange = "1M" | "3M" | "6M" | "1Y" | "3Y" | "MAX";
+type PriceChartGranularity = "DAY" | "MONTH" | "YEAR";
 
 const compactChipSx = {
   height: 20,
@@ -71,6 +76,21 @@ const compactChipSx = {
 
 const currentYear = new Date().getFullYear();
 const detailRequestTimeoutMs = 15000;
+
+const priceChartRanges: Array<{ value: PriceChartRange; label: string; days?: number }> = [
+  { value: "1M", label: "1T", days: 31 },
+  { value: "3M", label: "3T", days: 93 },
+  { value: "6M", label: "6T", days: 186 },
+  { value: "1Y", label: "1N", days: 365 },
+  { value: "3Y", label: "3N", days: 1095 },
+  { value: "MAX", label: "Max" },
+];
+
+const priceChartGranularities: Array<{ value: PriceChartGranularity; label: string }> = [
+  { value: "DAY", label: "Ngày" },
+  { value: "MONTH", label: "Tháng" },
+  { value: "YEAR", label: "Năm" },
+];
 
 const defaultFilters: OpportunityQueryParams = {
   fromYear: 2023,
@@ -158,6 +178,9 @@ export default function OpportunitiesPage() {
   const [detail, setDetail] = useState<OpportunityDetailItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [priceHistory, setPriceHistory] = useState<StockPricePoint[]>([]);
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
+  const [priceHistoryError, setPriceHistoryError] = useState("");
 
   const items = data?.items ?? [];
   const summary = data?.summary;
@@ -200,16 +223,18 @@ export default function OpportunitiesPage() {
   const updateFilter = (field: keyof OpportunityQueryParams, value: string | number | boolean) => {
     setFilters((prev) => ({
       ...prev,
+      page: 0,
       [field]: value,
     }));
   };
 
-  const applyFilters = () => {
-    loadOpportunities({
-      ...filters,
-      page: 0,
-    });
-  };
+  useEffect(() => {
+    if (filterSignature(filters) === filterSignature(appliedFilters) || isInvalidRange) return;
+    const timer = window.setTimeout(() => {
+      void loadOpportunities(filters);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [appliedFilters, filters, isInvalidRange, loadOpportunities]);
 
   const resetFilters = () => {
     loadOpportunities(defaultFilters);
@@ -234,9 +259,12 @@ export default function OpportunitiesPage() {
     setSelectedCode(item.code);
     setDetail(null);
     setDetailError("");
+    setPriceHistory([]);
+    setPriceHistoryError("");
     setActionMessage("");
     setActionError("");
     setDetailLoading(true);
+    setPriceHistoryLoading(true);
 
     try {
       const response = await withTimeout(
@@ -254,12 +282,24 @@ export default function OpportunitiesPage() {
     } finally {
       setDetailLoading(false);
     }
+
+    try {
+      const history = await stockApi.getPriceHistory(item.code, 1500);
+      setPriceHistory(history);
+    } catch (error) {
+      console.warn("Opportunity price history unavailable", error);
+      setPriceHistoryError("Chưa tải được lịch sử giá.");
+    } finally {
+      setPriceHistoryLoading(false);
+    }
   };
 
   const closeDetail = () => {
     setSelectedCode("");
     setDetail(null);
     setDetailError("");
+    setPriceHistory([]);
+    setPriceHistoryError("");
     setActionMessage("");
     setActionError("");
   };
@@ -436,7 +476,7 @@ export default function OpportunitiesPage() {
               </TextField>
             </Box>
 
-            <Accordion defaultExpanded disableGutters elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: "10px !important", "&:before": { display: "none" } }}>
+            <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: "10px !important", "&:before": { display: "none" } }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 44, "& .MuiAccordionSummary-content": { my: 1 } }}>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>Bộ lọc nâng cao</Typography>
               </AccordionSummary>
@@ -459,15 +499,13 @@ export default function OpportunitiesPage() {
               </AccordionDetails>
             </Accordion>
 
-            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-start" }}>
-              <Button
-                variant="contained"
-                startIcon={<SearchIcon />}
-                onClick={applyFilters}
-                disabled={loading || isInvalidRange}
-              >
+            <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "none" }}>
                 Áp dụng
-              </Button>
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Bộ lọc tự cập nhật sau khi thay đổi.
+              </Typography>
               <Button variant="outlined" onClick={resetFilters} disabled={loading}>
                 Reset
               </Button>
@@ -576,6 +614,9 @@ export default function OpportunitiesPage() {
         open={Boolean(selectedCode)}
         code={selectedCode}
         detail={detail}
+        priceHistory={priceHistory}
+        priceHistoryLoading={priceHistoryLoading}
+        priceHistoryError={priceHistoryError}
         loading={detailLoading}
         error={detailError}
         actionMessage={actionMessage}
@@ -901,6 +942,9 @@ function OpportunityDetailDrawer({
   open,
   code,
   detail,
+  priceHistory,
+  priceHistoryLoading,
+  priceHistoryError,
   loading,
   error,
   actionMessage,
@@ -914,6 +958,9 @@ function OpportunityDetailDrawer({
   open: boolean;
   code: string;
   detail: OpportunityDetailItem | null;
+  priceHistory: StockPricePoint[];
+  priceHistoryLoading: boolean;
+  priceHistoryError: string;
   loading: boolean;
   error: string;
   actionMessage: string;
@@ -928,14 +975,11 @@ function OpportunityDetailDrawer({
   const technicalReasons = technicalDetailReasons(detail);
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose}>
-      <Box sx={{ width: { xs: "100vw", sm: 560 }, height: "100vh", overflowY: "auto", bgcolor: "background.default" }}>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" scroll="paper">
+      <DialogTitle sx={{ p: 0 }}>
         <Box
           sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 2,
-            p: 3,
+            p: { xs: 2, sm: 3 },
             pb: 2,
             bgcolor: "background.paper",
             borderBottom: "1px solid",
@@ -994,8 +1038,9 @@ function OpportunityDetailDrawer({
             </Stack>
           )}
         </Box>
+      </DialogTitle>
 
-        <Box sx={{ p: 3, pt: 2 }}>
+      <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: "background.default" }}>
           {loading && <LinearProgress sx={{ mb: 2 }} />}
           {error && (
             <Alert severity="warning" sx={{ mb: 2 }}>
@@ -1015,9 +1060,25 @@ function OpportunityDetailDrawer({
 
           {detail && (
           <Stack spacing={2}>
-            <Card variant="outlined">
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "0.82fr 1.18fr" }, gap: 2 }}>
+            <Card variant="outlined" sx={{ height: "100%" }}>
               <CardContent>
-                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mb: 2 }}>
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  sx={{
+                    flexWrap: "wrap",
+                    mb: 1.5,
+                    gap: 0.75,
+                    "& .MuiChip-root": { height: 28, maxWidth: "100%" },
+                    "& .MuiChip-label": {
+                      px: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    },
+                  }}
+                >
                   <Chip label={decisionLabel(detail.decision, detail.decisionLabel)} color={decisionColor(detail.decision)} />
                   <Chip
                     label={shortResearchLabel(detail.researchReadiness)}
@@ -1043,6 +1104,14 @@ function OpportunityDetailDrawer({
                 </Box>
               </CardContent>
             </Card>
+
+            <PriceMovementCard
+              detail={detail}
+              prices={priceHistory}
+              loading={priceHistoryLoading}
+              error={priceHistoryError}
+            />
+            </Box>
 
             <Card variant="outlined">
               <CardContent>
@@ -1122,6 +1191,7 @@ function OpportunityDetailDrawer({
               </Alert>
             )}
 
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2 }}>
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 700 }}>
@@ -1238,9 +1308,11 @@ function OpportunityDetailDrawer({
                 )}
               </CardContent>
             </Card>
+            </Box>
 
             <ValuationV2Card detail={detail} />
 
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2 }}>
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
@@ -1272,6 +1344,7 @@ function OpportunityDetailDrawer({
                 </Box>
               </CardContent>
             </Card>
+            </Box>
 
             <Card variant="outlined">
               <CardContent>
@@ -1296,10 +1369,290 @@ function OpportunityDetailDrawer({
             )}
           </Stack>
           )}
-        </Box>
-      </Box>
-    </Drawer>
+      </DialogContent>
+    </Dialog>
   );
+}
+
+function PriceMovementCard({
+  detail,
+  prices,
+  loading,
+  error,
+}: {
+  detail: OpportunityDetailItem;
+  prices: StockPricePoint[];
+  loading: boolean;
+  error: string;
+}) {
+  const [range, setRange] = useState<PriceChartRange>("1Y");
+  const [granularity, setGranularity] = useState<PriceChartGranularity>("DAY");
+  const validPrices = useMemo(
+    () =>
+      prices.filter(
+        (point): point is StockPricePoint & { closePrice: number } =>
+          typeof point.closePrice === "number" && Number.isFinite(point.closePrice)
+      ),
+    [prices]
+  );
+  const visiblePrices = useMemo(
+    () => aggregatePriceHistory(filterPriceHistory(validPrices, range), granularity),
+    [validPrices, range, granularity]
+  );
+  const chart = buildPriceHistoryChart(visiblePrices);
+  const rangeLabel = priceChartRanges.find((item) => item.value === range)?.label ?? range;
+  const granularityLabel = priceChartGranularities.find((item) => item.value === granularity)?.label ?? granularity;
+
+  return (
+    <Card variant="outlined" sx={{ height: "100%" }}>
+      <CardContent>
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Biểu đồ giá
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Lịch sử 1 năm từ stock_prices
+            </Typography>
+          </Box>
+          <Chip
+            size="small"
+            color={priceTrendColor(detail.priceTrendLevel)}
+            label={priceTrendLabel(detail.priceTrendLevel)}
+            variant="outlined"
+          />
+        </Stack>
+
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, mb: 1.5 }}
+        >
+          <SegmentedControl options={priceChartRanges} value={range} onChange={setRange} />
+          <SegmentedControl options={priceChartGranularities} value={granularity} onChange={setGranularity} />
+        </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+          Đang xem: {rangeLabel} · {granularityLabel} · {visiblePrices.length} điểm dữ liệu
+        </Typography>
+
+        {loading && <LinearProgress sx={{ mb: 1.5 }} />}
+        {error && (
+          <Alert severity="warning" sx={{ mb: 1.5, py: 0.75 }}>
+            {error}
+          </Alert>
+        )}
+
+        {chart ? (
+          <Box>
+            <Box
+              component="svg"
+              viewBox="0 0 640 260"
+              role="img"
+              aria-label={`Biểu đồ giá ${detail.code}`}
+              sx={{
+                width: "100%",
+                height: 260,
+                display: "block",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 1,
+                bgcolor: "background.paper",
+              }}
+            >
+              <rect x="0" y="0" width="640" height="260" fill="#fff" />
+              {[0, 1, 2, 3].map((index) => {
+                const y = chart.top + (chart.priceHeight / 3) * index;
+                return <line key={index} x1="52" y1={y} x2="610" y2={y} stroke="#edf1f7" />;
+              })}
+              {chart.volumeBars.map((bar, index) => (
+                <rect key={`${bar.x}-${index}`} x={bar.x} y={bar.y} width={bar.width} height={bar.height} fill="#d9e8ff" />
+              ))}
+              <polyline
+                points={chart.closePolyline}
+                fill="none"
+                stroke="#0d47a1"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {chart.hoverPoints.map((point) => (
+                <circle key={point.date} cx={point.x} cy={point.y} r="7" fill="transparent">
+                  <title>{`${formatFullDate(point.date)} | Giá ${formatNumber(point.close)}k | KL ${formatNumber(point.volume, 0)}`}</title>
+                </circle>
+              ))}
+              {chart.markers.map((marker) => (
+                <g key={marker.label}>
+                  <circle cx={marker.x} cy={marker.y} r="4" fill={marker.color} />
+                  <text x={marker.x} y={marker.labelY} textAnchor="middle" fontSize="11" fill="#152033" fontWeight="700">
+                    {marker.label}
+                  </text>
+                </g>
+              ))}
+              <text x="52" y="22" fontSize="11" fill="#526070">
+                {formatNumber(chart.maxClose)}k
+              </text>
+              <text x="52" y="154" fontSize="11" fill="#526070">
+                {formatNumber(chart.minClose)}k
+              </text>
+              <text x="52" y="244" fontSize="11" fill="#526070">
+                Vol
+              </text>
+              {chart.dateLabels.map((label) => (
+                <text key={label.text} x={label.x} y="184" textAnchor={label.anchor} fontSize="11" fill="#526070">
+                  {label.text}
+                </text>
+              ))}
+            </Box>
+            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1, mt: 1.5 }}>
+              <CompactMetric label="Đầu kỳ" value={`${formatNumber(chart.firstClose)}k`} />
+              <CompactMetric label="Cuối kỳ" value={`${formatNumber(chart.lastClose)}k`} />
+              <CompactMetric label="Cao nhất" value={`${formatNumber(chart.maxClose)}k`} />
+              <CompactMetric label="Thấp nhất" value={`${formatNumber(chart.minClose)}k`} />
+            </Box>
+            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1, mt: 1 }}>
+              <CompactMetric label="Ngày đầu kỳ" value={formatFullDate(chart.firstDate)} />
+              <CompactMetric label="Ngày cuối kỳ" value={formatFullDate(chart.lastDate)} />
+              <CompactMetric label="Ngày cao nhất" value={formatFullDate(chart.highDate)} />
+              <CompactMetric label="Ngày thấp nhất" value={formatFullDate(chart.lowDate)} />
+            </Box>
+          </Box>
+        ) : (
+          <Alert severity="info">
+            Chưa đủ lịch sử giá để vẽ biểu đồ.
+          </Alert>
+        )}
+
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1, mt: 1.5 }}>
+          <CompactMetric label="Giá gần nhất" value={`${formatNumber(detail.latestPrice)}k`} />
+          <CompactMetric label="Ngày giá" value={detail.latestPriceDate ?? "-"} />
+          <CompactMetric label="Cách đỉnh 52W" value={formatPercent(detail.drawdownFrom52wHigh)} />
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function filterPriceHistory(prices: Array<StockPricePoint & { closePrice: number }>, range: PriceChartRange) {
+  const option = priceChartRanges.find((item) => item.value === range);
+  if (!option?.days || prices.length === 0) return prices;
+  const latest = new Date(prices[prices.length - 1].priceDate);
+  if (Number.isNaN(latest.getTime())) return prices;
+  const fromTime = latest.getTime() - option.days * 24 * 60 * 60 * 1000;
+  return prices.filter((point) => {
+    const date = new Date(point.priceDate);
+    return !Number.isNaN(date.getTime()) && date.getTime() >= fromTime;
+  });
+}
+
+function aggregatePriceHistory(
+  prices: Array<StockPricePoint & { closePrice: number }>,
+  granularity: PriceChartGranularity
+): Array<StockPricePoint & { closePrice: number }> {
+  if (granularity === "DAY") return prices;
+  const groups = new Map<string, Array<StockPricePoint & { closePrice: number }>>();
+  prices.forEach((point) => {
+    const key = granularity === "MONTH" ? point.priceDate.slice(0, 7) : point.priceDate.slice(0, 4);
+    groups.set(key, [...(groups.get(key) ?? []), point]);
+  });
+
+  return Array.from(groups.values()).map((group) => {
+    const first = group[0];
+    const last = group[group.length - 1];
+    const highs = group.map((point) => point.highPrice ?? point.closePrice);
+    const lows = group.map((point) => point.lowPrice ?? point.closePrice);
+    return {
+      ...last,
+      priceDate: last.priceDate,
+      openPrice: first.openPrice ?? first.closePrice,
+      highPrice: Math.max(...highs),
+      lowPrice: Math.min(...lows),
+      closePrice: last.closePrice,
+      volume: group.reduce((sum, point) => sum + (point.volume ?? 0), 0),
+      tradingValue: group.reduce((sum, point) => sum + (point.tradingValue ?? 0), 0),
+    };
+  });
+}
+
+function buildPriceHistoryChart(prices: Array<StockPricePoint & { closePrice: number }>) {
+  if (prices.length < 2) return null;
+  const left = 52;
+  const right = 610;
+  const top = 20;
+  const priceBottom = 158;
+  const volumeTop = 198;
+  const volumeBottom = 240;
+  const width = right - left;
+  const priceHeight = priceBottom - top;
+  const closes = prices.map((point) => point.closePrice);
+  const minClose = Math.min(...closes);
+  const maxClose = Math.max(...closes);
+  const closeRange = Math.max(0.01, maxClose - minClose);
+  const maxVolume = Math.max(...prices.map((point) => point.volume ?? 0), 1);
+  const xStep = width / (prices.length - 1);
+  const mapY = (value: number) => priceBottom - ((value - minClose) / closeRange) * priceHeight;
+  const chartPoints = prices.map((point, index) => ({
+    date: point.priceDate,
+    close: point.closePrice,
+    volume: point.volume ?? 0,
+    x: left + index * xStep,
+    y: mapY(point.closePrice),
+  }));
+  const barWidth = Math.max(1, Math.min(4, width / prices.length - 1));
+  const first = chartPoints[0];
+  const last = chartPoints[chartPoints.length - 1];
+  const high = chartPoints.reduce((best, point) => (point.close > best.close ? point : best), first);
+  const low = chartPoints.reduce((best, point) => (point.close < best.close ? point : best), first);
+
+  return {
+    top,
+    priceHeight,
+    firstClose: first.close,
+    lastClose: last.close,
+    minClose,
+    maxClose,
+    closePolyline: chartPoints.map((point) => `${point.x},${point.y}`).join(" "),
+    volumeBars: chartPoints.map((point) => {
+      const height = (point.volume / maxVolume) * (volumeBottom - volumeTop);
+      return {
+        x: point.x - barWidth / 2,
+        y: volumeBottom - height,
+        width: barWidth,
+        height,
+      };
+    }),
+    markers: [
+      { label: `${formatNumber(high.close)}k · ${formatShortDate(high.date)}`, x: high.x, y: high.y, labelY: Math.max(14, high.y - 10), color: "#15803d" },
+      { label: `${formatNumber(low.close)}k · ${formatShortDate(low.date)}`, x: low.x, y: low.y, labelY: Math.min(176, low.y + 18), color: "#b91c1c" },
+    ],
+    hoverPoints: chartPoints,
+    dateLabels: [
+      { text: formatShortDate(first.date), x: left, anchor: "start" as const },
+      { text: formatShortDate(chartPoints[Math.floor(chartPoints.length / 2)].date), x: left + width / 2, anchor: "middle" as const },
+      { text: formatShortDate(last.date), x: right, anchor: "end" as const },
+    ],
+    firstDate: first.date,
+    lastDate: last.date,
+    highDate: high.date,
+    lowDate: low.date,
+  };
+}
+
+function priceTrendLabel(value?: string | null) {
+  const normalized = (value ?? "").toUpperCase();
+  if (normalized.includes("STRONG_UP")) return "Tăng mạnh";
+  if (normalized.includes("UP")) return "Tăng";
+  if (normalized.includes("STRONG_DOWN")) return "Giảm mạnh";
+  if (normalized.includes("DOWN")) return "Giảm";
+  if (normalized.includes("SIDEWAY") || normalized.includes("FLAT")) return "Đi ngang";
+  return "Chưa rõ";
+}
+
+function priceTrendColor(value?: string | null): BadgeColor {
+  const normalized = (value ?? "").toUpperCase();
+  if (normalized.includes("UP")) return "success";
+  if (normalized.includes("DOWN")) return "warning";
+  if (normalized.includes("SIDEWAY") || normalized.includes("FLAT")) return "info";
+  return "default";
 }
 
 function ReasonChips({ item }: { item: OpportunitySummaryItem }) {
@@ -1415,6 +1768,27 @@ function MetricCard({
   );
 }
 
+function formatShortDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+function formatFullDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function MetricLine({ label, value }: { label: string; value: string }) {
   return (
     <Box>
@@ -1422,6 +1796,63 @@ function MetricLine({ label, value }: { label: string; value: string }) {
         {label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <Box
+      sx={{
+        display: "inline-flex",
+        p: 0.25,
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 1,
+        bgcolor: "background.paper",
+        overflowX: "auto",
+        maxWidth: "100%",
+      }}
+    >
+      {options.map((option) => (
+        <Button
+          key={option.value}
+          size="small"
+          variant={option.value === value ? "contained" : "text"}
+          onClick={() => onChange(option.value)}
+          sx={{
+            minWidth: 0,
+            px: 1,
+            py: 0.35,
+            fontSize: "0.75rem",
+            whiteSpace: "nowrap",
+            boxShadow: "none",
+          }}
+        >
+          {option.label}
+        </Button>
+      ))}
+    </Box>
+  );
+}
+
+function CompactMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.35, wordBreak: "break-word" }}>
         {value}
       </Typography>
     </Box>
@@ -1453,6 +1884,23 @@ function formatDateTime(value?: string | null) {
 
 function count(counts: Record<string, number> | undefined, key: string) {
   return counts?.[key] ?? 0;
+}
+
+function filterSignature(filters: OpportunityQueryParams) {
+  return JSON.stringify({
+    fromYear: filters.fromYear,
+    toYear: filters.toYear,
+    page: filters.page ?? 0,
+    size: filters.size,
+    exchange: filters.exchange ?? "",
+    industryGroup: filters.industryGroup ?? "",
+    decision: filters.decision ?? "",
+    decisionReasonCode: filters.decisionReasonCode ?? "",
+    researchReadiness: filters.researchReadiness ?? "",
+    executionReadiness: filters.executionReadiness ?? "",
+    excludeLowLiquidity: Boolean(filters.excludeLowLiquidity),
+    sort: filters.sort ?? "",
+  });
 }
 
 function listSubtitle(meta: OpportunityWrappedResponse["meta"]) {
