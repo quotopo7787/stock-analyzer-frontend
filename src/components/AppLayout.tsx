@@ -20,6 +20,7 @@ const navItems = [
   { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
   { label: "Phân bổ vốn", to: "/portfolio-allocation", icon: <AccountBalanceWalletOutlined /> },
   { label: "Paper Trading", to: "/paper-trading", icon: <ScienceOutlined /> },
+  { label: "Bảng giá realtime", to: "/realtime", icon: <ShowChart /> },
 ];
 
 export default function AppLayout() {
