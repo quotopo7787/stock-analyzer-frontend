@@ -9,6 +9,7 @@ import {
   GroupsOutlined, HistoryToggleOffOutlined, NotificationsNoneOutlined, PercentOutlined, Refresh,
   ShowChartOutlined, StorageOutlined, TrendingUpOutlined, WarningAmberOutlined,
 } from "@mui/icons-material";
+import MarketContextCard from "../components/MarketContextCard";
 import { portfolioApi } from "../api/portfolioApi";
 import { decisionPlanApi } from "../api/decisionPlanApi";
 import { dataGapApi } from "../api/dataGapApi";
@@ -91,6 +92,8 @@ export default function DashboardPage() {
       <Metric label="Số mã vượt tỷ trọng" value={formatNumber(summary?.overMaxPositionCount)} tone="warning" icon={<WarningAmberOutlined />} iconTone="orange" />
       <Metric label="Số mã thiếu giá" value={formatNumber(summary?.missingPriceCount)} tone={summary?.missingPriceCount ? "warning" : undefined} icon={<BlockOutlined />} iconTone="purple" />
     </Box>
+
+    <MarketContextCard />
 
     <Box sx={sectionGridSx}>
       <Section title="Cảnh báo danh mục" icon={<NotificationsNoneOutlined />} error={errors.portfolio}>
