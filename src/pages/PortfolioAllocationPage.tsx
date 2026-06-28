@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { portfolioAllocationApi } from "../api/portfolioAllocationApi";
+import MoneyTextField from "../components/MoneyTextField";
 import type {
   PortfolioAllocationIndustry,
   PortfolioAllocationPosition,
@@ -97,6 +98,10 @@ export default function PortfolioAllocationPage() {
     value: form[key],
     onChange: (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [key]: event.target.value })),
   });
+  const moneyField = (key: keyof ReviewForm) => ({
+    value: form[key],
+    onChange: (value: string) => setForm((current) => ({ ...current, [key]: value })),
+  });
 
   return (
     <Box sx={{ textAlign: "left" }}>
@@ -117,8 +122,8 @@ export default function PortfolioAllocationPage() {
         <CardContent>
           <Typography variant="h6" gutterBottom>Cấu hình review</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(6, minmax(0, 1fr))" }, gap: 2 }}>
-            <TextField label="Tổng vốn đầu tư" type="number" {...field("totalCapital")} helperText="Có thể để trống để lấy tiền mặt + giá trị vị thế" />
-            <TextField label="Tiền mặt" type="number" {...field("cashAmount")} />
+            <MoneyTextField label="Tổng vốn đầu tư" {...moneyField("totalCapital")} helperText="Có thể để trống để lấy tiền mặt + giá trị vị thế" />
+            <MoneyTextField label="Tiền mặt" {...moneyField("cashAmount")} />
             <TextField label="Max mỗi mã (%)" type="number" {...field("maxStockWeightPercent")} />
             <TextField label="Max mỗi ngành (%)" type="number" {...field("maxIndustryWeightPercent")} />
             <TextField label="Tiền mặt tối thiểu (%)" type="number" {...field("minCashPercent")} />

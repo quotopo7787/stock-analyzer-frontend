@@ -9,6 +9,9 @@ import {
   WarningAmberOutlined,
 } from "@mui/icons-material";
 import { paperTradingApi } from "../api/paperTradingApi";
+import { forwardTrackingApi } from "../api/forwardTrackingApi";
+import type { ForwardTrackingStatus } from "../types/forwardTracking";
+import MetricTooltip from "../components/MetricTooltip";
 import type {
   AlphaByDecisionItem, AlphaOverviewResponse, AlphaTopItem,
   DailyCheckResponse, DailyMonitoringResponse, JobDailySummaryResponse, JobRunItem, MonitoringIssue,
@@ -85,6 +88,7 @@ export default function PaperTradingPage() {
   const [scheduler, setScheduler] = useState<SchedulerStatusResponse | null>(null);
   const [jobSummary, setJobSummary] = useState<JobDailySummaryResponse | null>(null);
   const [sampleGrowth, setSampleGrowth] = useState<SampleGrowthSummaryResponse | null>(null);
+  const [ftStatus, setFtStatus] = useState<ForwardTrackingStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -93,7 +97,7 @@ export default function PaperTradingPage() {
     setLoading(true);
     setError(null);
     try {
-      const [d, c, a, dec, w, l, s, sg, js] = await Promise.all([
+      const [d, c, a, dec, w, l, s, sg, js, ft] = await Promise.all([
         paperTradingApi.getDaily(),
         paperTradingApi.getDailyCheck(),
         paperTradingApi.getAlphaOverview(),
@@ -103,6 +107,7 @@ export default function PaperTradingPage() {
         paperTradingApi.getSchedulerStatus(),
         paperTradingApi.getSampleGrowthSummary(),
         paperTradingApi.getJobsDailySummary().catch(() => null),
+        forwardTrackingApi.getStatus().catch(() => null),
       ]);
       setDaily(d);
       setCheck(c);
@@ -113,6 +118,7 @@ export default function PaperTradingPage() {
       setScheduler(s);
       setSampleGrowth(sg);
       setJobSummary(js);
+      setFtStatus(ft);
       setLastRefresh(new Date());
     } catch {
       setError("Không kết nối được backend. Kiểm tra localhost:8080.");
@@ -298,7 +304,12 @@ export default function PaperTradingPage() {
             </Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
               <Box>
-                <Typography variant="caption" color="text.secondary">Alpha trung bình</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  <MetricTooltip
+                    label="Alpha trung bình"
+                    title="Alpha = lợi nhuận của tín hiệu trừ lợi nhuận VNINDEX cùng kỳ. Alpha dương nghĩa là tín hiệu đang tốt hơn benchmark."
+                  />
+                </Typography>
                 <Typography
                   variant="h5"
                   sx={{ fontWeight: 700 }}
@@ -308,19 +319,39 @@ export default function PaperTradingPage() {
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Tỷ lệ thắng VNINDEX</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  <MetricTooltip
+                    label="Tỷ lệ thắng VNINDEX"
+                    title="Tỷ lệ mẫu có alpha dương, tức là tín hiệu vượt VNINDEX trong cùng khung thời gian."
+                  />
+                </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>{fmt(alpha.positiveAlphaRate)}%</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Return tín hiệu</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  <MetricTooltip
+                    label="Lợi nhuận tín hiệu"
+                    title="Mức sinh lời trung bình của cổ phiếu từ giá vào đến giá đánh giá, chưa trừ benchmark."
+                  />
+                </Typography>
                 <Typography variant="h6">{fmt(alpha.averageSignalReturn, 4)}%</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Return VNINDEX</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  <MetricTooltip
+                    label="Lợi nhuận VNINDEX"
+                    title="Mức sinh lời của VNINDEX trong cùng giai đoạn với tín hiệu, dùng làm benchmark."
+                  />
+                </Typography>
                 <Typography variant="h6">{fmt(alpha.averageBenchmarkReturn, 4)}%</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Độ tin cậy</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  <MetricTooltip
+                    label="Độ tin cậy"
+                    title="Đánh giá độ chắc của kết quả alpha dựa trên số mẫu, độ biến động, outlier và mức đồng thuận giữa trung bình/trung vị."
+                  />
+                </Typography>
                 <Chip
                   label={alpha.alphaConfidenceLabel ?? "—"}
                   size="small"
@@ -334,7 +365,12 @@ export default function PaperTradingPage() {
                 )}
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Mẫu</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  <MetricTooltip
+                    label="Mẫu"
+                    title="Số lượt đánh giá đã đủ hạn. Mẫu càng lớn thì kết luận alpha càng đáng tin."
+                  />
+                </Typography>
                 <Typography variant="h6">{alpha.evaluationCount ?? alpha.count ?? 0}</Typography>
               </Box>
             </Stack>
@@ -346,17 +382,46 @@ export default function PaperTradingPage() {
                 mt: 2,
               }}
             >
-              <StatMetric label="Độ lệch chuẩn mẫu" value={`${statFmt(alpha.sampleStdDevAlpha, 4)}%`} />
-              <StatMetric label="Sai số chuẩn alpha" value={`${statFmt(alpha.alphaStdError, 4)}%`} />
+              <StatMetric
+                label="Độ lệch chuẩn mẫu"
+                tooltip="Mức phân tán của alpha giữa các mẫu. Cao nghĩa là kết quả dao động mạnh và khó kết luận."
+                value={`${statFmt(alpha.sampleStdDevAlpha, 4)}%`}
+              />
+              <StatMetric
+                label="Sai số chuẩn alpha"
+                tooltip="Ước lượng độ bất định của alpha trung bình. Sai số càng thấp thì alpha trung bình càng đáng tin."
+                value={`${statFmt(alpha.alphaStdError, 4)}%`}
+              />
               <StatMetric
                 label="Khoảng tin cậy 95%"
+                tooltip="Khoảng ước lượng alpha trung bình. Nếu khoảng này cắt qua 0 thì chưa thể kết luận alpha dương rõ ràng."
                 value={`${statFmt(alpha.alphaConfidenceIntervalLow, 4)}% → ${statFmt(alpha.alphaConfidenceIntervalHigh, 4)}%`}
               />
-              <StatMetric label="Information ratio lite" value={statFmt(alpha.informationRatioLite, 4)} />
-              <StatMetric label="Chênh TB - trung vị" value={`${statFmt(alpha.meanMedianSpreadAlpha, 4)}%`} />
-              <StatMetric label="Đã benchmark" value={`${alpha.benchmarkedCount ?? 0}/${alpha.evaluationCount ?? alpha.count ?? 0}`} />
-              <StatMetric label="Thiếu benchmark" value={`${alpha.missingBenchmarkCount ?? 0}`} />
-              <StatMetric label="Tín hiệu mở" value={`${alpha.openSignalCount ?? 0}`} />
+              <StatMetric
+                label="Information ratio lite"
+                tooltip="Alpha trung bình chia cho độ biến động alpha. Dương và cao hơn thường tốt hơn, nhưng chỉ nên đọc khi mẫu đủ lớn."
+                value={statFmt(alpha.informationRatioLite, 4)}
+              />
+              <StatMetric
+                label="Chênh TB - trung vị"
+                tooltip="Khoảng cách giữa alpha trung bình và alpha trung vị. Chênh lớn có thể báo hiệu outlier đang kéo kết quả."
+                value={`${statFmt(alpha.meanMedianSpreadAlpha, 4)}%`}
+              />
+              <StatMetric
+                label="Đã benchmark"
+                tooltip="Số mẫu có đủ dữ liệu benchmark để tính alpha."
+                value={`${alpha.benchmarkedCount ?? 0}/${alpha.evaluationCount ?? alpha.count ?? 0}`}
+              />
+              <StatMetric
+                label="Thiếu benchmark"
+                tooltip="Số mẫu chưa có giá benchmark tương ứng nên không nên dùng để kết luận alpha."
+                value={`${alpha.missingBenchmarkCount ?? 0}`}
+              />
+              <StatMetric
+                label="Tín hiệu mở"
+                tooltip="Số tín hiệu chưa đủ hạn đánh giá nên chưa được tính vào alpha."
+                value={`${alpha.openSignalCount ?? 0}`}
+              />
             </Box>
             <Box sx={{ mt: 2, p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
               <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
@@ -431,17 +496,17 @@ export default function PaperTradingPage() {
       {byDecision.length > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>Alpha theo Decision</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>Alpha theo quyết định</Typography>
             <TableContainer>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Decision</TableCell>
+                    <TableCell>Quyết định</TableCell>
                     <TableCell align="right">Số mẫu</TableCell>
                     <TableCell align="right">Alpha TB</TableCell>
                     <TableCell align="right">Thắng VNINDEX</TableCell>
-                    <TableCell align="right">Signal return</TableCell>
-                    <TableCell align="right">Benchmark return</TableCell>
+                    <TableCell align="right">Lợi nhuận tín hiệu</TableCell>
+                    <TableCell align="right">Lợi nhuận benchmark</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -466,8 +531,8 @@ export default function PaperTradingPage() {
 
       {/* F. Top winners / losers */}
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 3 }}>
-        <TopTable title="Top Alpha Winners" items={winners} />
-        <TopTable title="Top Alpha Losers" items={losers} />
+        <TopTable title="Top alpha tốt nhất" items={winners} />
+        <TopTable title="Top alpha kém nhất" items={losers} />
       </Stack>
 
       {/* G. Scheduler status */}
@@ -585,6 +650,98 @@ export default function PaperTradingPage() {
         </Card>
       )}
 
+      {/* I. Forward Tracking */}
+      {ftStatus && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
+              Theo dõi forward hằng ngày
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: "wrap" }}>
+              <Chip
+                size="small"
+                color={ftStatus.enabled ? "success" : "default"}
+                label={ftStatus.enabled ? "Scheduler bật" : "Scheduler tắt"}
+              />
+              <Chip
+                size="small"
+                color={ftStatus.dryRun ? "info" : "warning"}
+                label={ftStatus.dryRun ? "Dry-run" : "Live"}
+              />
+              <Chip
+                size="small"
+                color={ftStatus.canMutate ? "warning" : "default"}
+                label={ftStatus.canMutate ? "Có thể ghi DB" : "Chỉ đọc"}
+              />
+            </Stack>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: 1.5,
+                mb: 1.5,
+              }}
+            >
+              <Box>
+                <Typography variant="caption" color="text.secondary">Snapshot hôm nay</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: ftStatus.todaySnapshotCaptured ? "success.main" : "text.secondary" }}>
+                  {ftStatus.todaySnapshotCaptured ? "Đã capture" : "Chưa capture"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Signal hôm nay</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: ftStatus.todaySignalCaptured ? "success.main" : "text.secondary" }}>
+                  {ftStatus.todaySignalCaptured ? "Đã capture" : "Chưa capture"}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Chờ đánh giá 7D</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>{ftStatus.pending7DCount}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Chờ đánh giá 14D</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>{ftStatus.pending14DCount}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Chờ đánh giá 30D</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>{ftStatus.pending30DCount}</Typography>
+              </Box>
+            </Box>
+            {ftStatus.lastSnapshotJob && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                Snapshot gần nhất: {new Date(ftStatus.lastSnapshotJob.startedAt).toLocaleString("vi-VN")}
+                {" — "}
+                <Chip label={ftStatus.lastSnapshotJob.status} size="small"
+                  color={ftStatus.lastSnapshotJob.status === "SUCCESS" ? "success" : ftStatus.lastSnapshotJob.status === "FAILED" ? "error" : "info"} />
+              </Typography>
+            )}
+            {ftStatus.lastSignalJob && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                Signal gần nhất: {new Date(ftStatus.lastSignalJob.startedAt).toLocaleString("vi-VN")}
+                {" — "}
+                <Chip label={ftStatus.lastSignalJob.status} size="small"
+                  color={ftStatus.lastSignalJob.status === "SUCCESS" ? "success" : ftStatus.lastSignalJob.status === "FAILED" ? "error" : "info"} />
+              </Typography>
+            )}
+            {ftStatus.lastEvaluationJob && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                Evaluation gần nhất: {new Date(ftStatus.lastEvaluationJob.startedAt).toLocaleString("vi-VN")}
+                {" — "}
+                <Chip label={ftStatus.lastEvaluationJob.status} size="small"
+                  color={ftStatus.lastEvaluationJob.status === "SUCCESS" ? "success" : ftStatus.lastEvaluationJob.status === "FAILED" ? "error" : "info"} />
+              </Typography>
+            )}
+            {ftStatus.warnings.length > 0 && (
+              <Stack spacing={0.5} sx={{ mt: 1 }}>
+                {ftStatus.warnings.map((w, i) => (
+                  <Typography key={i} variant="caption" color="warning.main">⚠ {w}</Typography>
+                ))}
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Disclaimer */}
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center", mt: 2 }}>
         Đây là tín hiệu mô phỏng — Không phải khuyến nghị đầu tư.
@@ -606,7 +763,7 @@ function TopTable({ title, items }: { title: string; items: AlphaTopItem[] }) {
               <TableHead>
                 <TableRow>
                   <TableCell>Mã</TableCell>
-                  <TableCell>Decision</TableCell>
+                  <TableCell>Quyết định</TableCell>
                   <TableCell align="right">Score</TableCell>
                   <TableCell align="right">Signal</TableCell>
                   <TableCell align="right">Benchmark</TableCell>
@@ -651,10 +808,12 @@ function StatusDot({ on }: { on: boolean }) {
   );
 }
 
-function StatMetric({ label, value }: { label: string; value: string }) {
+function StatMetric({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      <Typography variant="caption" color="text.secondary">
+        {tooltip ? <MetricTooltip label={label} title={tooltip} /> : label}
+      </Typography>
       <Typography variant="body2" sx={{ fontWeight: 700 }}>{value}</Typography>
     </Box>
   );

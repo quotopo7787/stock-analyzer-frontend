@@ -7,6 +7,7 @@ import {
   TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography,
 } from "@mui/material";
 import { decisionPlanApi } from "../api/decisionPlanApi";
+import MoneyTextField from "../components/MoneyTextField";
 import type {
   DecisionPlanAction, DecisionPlanDetail, DecisionPlanListItem, DecisionPlanPage,
   DecisionPlanPayload, DecisionPlanPrefill, DecisionPlanStatus,
@@ -284,6 +285,10 @@ function PlanDialog({ open, plan, prefill, onClose, onSaved }: {
   const field = (name: keyof FormState) => ({
     value: form[name], onChange: (event: React.ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [name]: event.target.value })),
   });
+  const moneyField = (name: keyof FormState) => ({
+    value: form[name],
+    onChange: (value: string) => setForm((current) => ({ ...current, [name]: value })),
+  });
   const save = async () => {
     try {
       setSaving(true); setError("");
@@ -323,9 +328,9 @@ function PlanDialog({ open, plan, prefill, onClose, onSaved }: {
         onChange={(e) => setForm((current) => ({ ...current, status: e.target.value as DecisionPlanStatus }))}>
         {statuses.map((value) => <option key={value} value={value}>{statusLabels[value]}</option>)}</NativeSelect></FormControl>
       <TextField label="Ngày review" type="date" {...field("reviewDate")} slotProps={{ inputLabel: { shrink: true } }} />
-      <TextField label="Giá mua mục tiêu" type="number" {...field("targetBuyPrice")} />
-      <TextField label="Fair value" type="number" {...field("fairValue")} />
-      <TextField label="Giá bán mục tiêu" type="number" {...field("targetSellPrice")} />
+      <MoneyTextField label="Giá mua mục tiêu" {...moneyField("targetBuyPrice")} />
+      <MoneyTextField label="Fair value" {...moneyField("fairValue")} />
+      <MoneyTextField label="Giá bán mục tiêu" {...moneyField("targetSellPrice")} />
       <TextField label="Tỷ trọng tối đa (%)" type="number" {...field("maxPositionPercent")} />
       <TextField label="Tỷ trọng hiện tại (%)" type="number" {...field("currentPositionPercent")} />
       <Box />

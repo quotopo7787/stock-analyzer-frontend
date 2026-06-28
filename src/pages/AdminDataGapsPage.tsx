@@ -35,6 +35,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { dataGapApi } from "../api/dataGapApi";
 import { vietstockImportApi } from "../api/vietstockImportApi";
+import MoneyTextField from "../components/MoneyTextField";
 import type {
   DataGapReason,
   DataCoveragePriorityItem,
@@ -866,14 +867,12 @@ function StockPriceDialog({
             helperText={priceDateIsInFuture ? "Không được nhập ngày trong tương lai" : "Ngày giao dịch thực tế"}
             slotProps={{ htmlInput: { max: todayIso } }}
           />
-          <TextField
+          <MoneyTextField
             label="Giá đóng cửa mới (VND/cp)"
-            type="number"
             value={closePrice}
-            onChange={(e) => setClosePrice(e.target.value)}
+            onChange={setClosePrice}
             required
             helperText="Nhập theo VND/cp — VD: 73700. Hệ thống tự quy đổi khi lưu DB."
-            slotProps={{ htmlInput: { step: "1", min: "1" } }}
           />
           <TextField
             label="Ghi chú nguồn *"
@@ -1058,15 +1057,14 @@ function FinancialStatementDialog({
           ) : (
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2,minmax(0,1fr))" }, gap: 2 }}>
               {financialFieldDefinitions.map((field) => (
-                <TextField
+                <MoneyTextField
                   key={field.key}
                   label={`${field.label} (VND)`}
-                  type="number"
                   value={values[field.key]}
-                  onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
+                  onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))}
+                  allowNegative={field.allowNegative}
                   error={!field.allowNegative && values[field.key] !== "" && Number(values[field.key]) < 0}
                   helperText={moneyHelper(values[field.key], field.allowNegative)}
-                  slotProps={{ htmlInput: { step: "1", min: field.allowNegative ? undefined : "0" } }}
                 />
               ))}
             </Box>

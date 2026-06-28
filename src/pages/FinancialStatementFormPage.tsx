@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { financialStatementApi } from "../api/financialStatementApi";
+import MoneyTextField from "../components/MoneyTextField";
 import type {
   FinancialStatementRequest,
   FinancialStatementResponse,
@@ -181,67 +182,63 @@ export default function FinancialStatementFormPage() {
               </Box>
 
               <Box>
-                <TextField
+                <MoneyTextField
                   label="Doanh thu"
-                  type="number"
                   fullWidth
-                  value={form.revenue}
-                  onChange={(e) => handleNumberChange("revenue", e.target.value)}
+                  value={String(form.revenue)}
+                  onChange={(value) => handleNumberChange("revenue", value)}
                   helperText="Đơn vị: VND. Ví dụ 465 tỷ nhập 465000000000"
                 />
               </Box>
 
               <Box>
-                <TextField
+                <MoneyTextField
                   label="Lợi nhuận sau thuế"
-                  type="number"
                   fullWidth
-                  value={form.netProfit}
-                  onChange={(e) => handleNumberChange("netProfit", e.target.value)}
+                  value={String(form.netProfit)}
+                  onChange={(value) => handleNumberChange("netProfit", value)}
+                  allowNegative
                   helperText="Đơn vị: VND. Lợi nhuận ròng sau thuế"
                 />
               </Box>
 
               <Box>
-                <TextField
+                <MoneyTextField
                   label="Dòng tiền kinh doanh"
-                  type="number"
                   fullWidth
-                  value={form.operatingCashFlow}
-                  onChange={(e) => handleNumberChange("operatingCashFlow", e.target.value)}
+                  value={String(form.operatingCashFlow)}
+                  onChange={(value) => handleNumberChange("operatingCashFlow", value)}
+                  allowNegative
                   helperText="Đơn vị: VND. CFO / dòng tiền từ hoạt động kinh doanh"
                 />
               </Box>
 
               <Box>
-                <TextField
+                <MoneyTextField
                   label="Tổng tài sản"
-                  type="number"
                   fullWidth
-                  value={form.totalAssets}
-                  onChange={(e) => handleNumberChange("totalAssets", e.target.value)}
+                  value={String(form.totalAssets)}
+                  onChange={(value) => handleNumberChange("totalAssets", value)}
                   helperText="Đơn vị: VND. Tổng tài sản cuối kỳ"
                 />
               </Box>
 
               <Box>
-                <TextField
+                <MoneyTextField
                   label="Tổng nợ phải trả"
-                  type="number"
                   fullWidth
-                  value={form.totalLiabilities}
-                  onChange={(e) => handleNumberChange("totalLiabilities", e.target.value)}
+                  value={String(form.totalLiabilities)}
+                  onChange={(value) => handleNumberChange("totalLiabilities", value)}
                   helperText="Đơn vị: VND. Tổng liabilities / nợ phải trả"
                 />
               </Box>
 
               <Box>
-                <TextField
+                <MoneyTextField
                   label="Vốn chủ sở hữu"
-                  type="number"
                   fullWidth
-                  value={form.equity}
-                  onChange={(e) => handleNumberChange("equity", e.target.value)}
+                  value={String(form.equity)}
+                  onChange={(value) => handleNumberChange("equity", value)}
                   helperText="Đơn vị: VND. Equity / vốn chủ sở hữu"
                 />
               </Box>

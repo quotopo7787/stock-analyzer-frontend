@@ -9,6 +9,7 @@ import {
 } from "@mui/icons-material";
 import mqtt from "mqtt";
 import { dnseApi, type MqttCredentials } from "../api/dnseApi";
+import MetricTooltip from "../components/MetricTooltip";
 
 interface StockTick {
   symbol: string;
@@ -270,17 +271,31 @@ export default function RealtimePricePage() {
           <TableHead>
             <TableRow sx={{ "& th": { fontWeight: 700, fontSize: 12, color: "text.secondary", py: 1.2 } }}>
               <TableCell>Mã CK</TableCell>
-              <TableCell align="right">Trần</TableCell>
-              <TableCell align="right">Sàn</TableCell>
-              <TableCell align="right">TC</TableCell>
-              <TableCell align="right">Giá</TableCell>
-              <TableCell align="right">+/-</TableCell>
+              <TableCell align="right">
+                <MetricTooltip label="Trần" title="Giá cao nhất được phép giao dịch trong phiên." />
+              </TableCell>
+              <TableCell align="right">
+                <MetricTooltip label="Sàn" title="Giá thấp nhất được phép giao dịch trong phiên." />
+              </TableCell>
+              <TableCell align="right">
+                <MetricTooltip label="TC" title="Giá tham chiếu, thường là mốc để tính tăng/giảm trong phiên." />
+              </TableCell>
+              <TableCell align="right">
+                <MetricTooltip label="Giá" title="Giá khớp/lần cập nhật gần nhất từ dữ liệu realtime." />
+              </TableCell>
+              <TableCell align="right">
+                <MetricTooltip label="+/-" title="Mức thay đổi tuyệt đối so với giá tham chiếu." />
+              </TableCell>
               <TableCell align="right">%</TableCell>
               <TableCell align="right">Mở cửa</TableCell>
               <TableCell align="right">Cao</TableCell>
               <TableCell align="right">Thấp</TableCell>
-              <TableCell align="right">KL khớp</TableCell>
-              <TableCell align="right">Tổng KL</TableCell>
+              <TableCell align="right">
+                <MetricTooltip label="KL khớp" title="Khối lượng của lần khớp/cập nhật gần nhất." />
+              </TableCell>
+              <TableCell align="right">
+                <MetricTooltip label="Tổng KL" title="Tổng khối lượng đã giao dịch trong phiên." />
+              </TableCell>
               <TableCell align="center">Cập nhật</TableCell>
             </TableRow>
           </TableHead>

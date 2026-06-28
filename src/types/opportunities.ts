@@ -190,6 +190,12 @@ export interface OpportunitySummaryItem {
   sectorSpecific?: boolean | null;
   notApplicableMetrics?: string[];
   missingRequiredMetrics?: string[];
+  industryProfileLabel?: string | null;
+  industryProfileCategory?: string | null;
+  industryRequiredMetrics?: string[];
+  industryMissingMetrics?: string[];
+  industryInvalidMetrics?: string[];
+  industryWarnings?: string[];
   mainReasons?: string[];
   mainRisks?: string[];
   dataQualityWarnings?: string[];

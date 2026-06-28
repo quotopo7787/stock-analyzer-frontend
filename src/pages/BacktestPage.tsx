@@ -7,6 +7,7 @@ import {
   CircularProgress,
   FormControlLabel,
   Grid,
+  MenuItem,
   Paper,
   Snackbar,
   Stack,
@@ -21,10 +22,12 @@ import {
   Typography,
 } from "@mui/material";
 import { backtestApi } from "../api/backtestApi";
+import MetricTooltip from "../components/MetricTooltip";
 import type {
   BacktestRunRequest,
   BacktestRunResponse,
   BacktestSummaryResponse,
+  DecisionMatrixSimulationResponse,
   DiagnosticSection,
   GroupSummary,
   SignalDetail,
@@ -95,6 +98,13 @@ const reliabilityColor: Record<string, "success" | "warning" | "error" | "defaul
   INSUFFICIENT: "error",
 };
 
+const alphaFactorStatusColor: Record<string, "success" | "warning" | "error" | "default"> = {
+  PROMISING: "success",
+  TRACKING: "warning",
+  FAILED: "error",
+  INSUFFICIENT: "default",
+};
+
 function returnColor(v: number): string {
   if (v > 0) return "green";
   if (v < 0) return "red";
@@ -110,6 +120,7 @@ export default function BacktestPage() {
   const [symbolsText, setSymbolsText] = useState("");
   const [horizonsText, setHorizonsText] = useState("7,14,30");
   const [maxSymbols, setMaxSymbols] = useState(50);
+  const [dataMode, setDataMode] = useState("");
   const [dryRun, setDryRun] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -119,6 +130,10 @@ export default function BacktestPage() {
   const [summary, setSummary] = useState<BacktestSummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+
+  /* simulation state */
+  const [simulation, setSimulation] = useState<DecisionMatrixSimulationResponse | null>(null);
+  const [simLoading, setSimLoading] = useState(false);
 
   /* snackbar */
   const [snackMsg, setSnackMsg] = useState("");
@@ -166,6 +181,20 @@ export default function BacktestPage() {
     }
   }, []);
 
+  /* load simulation */
+  const loadSimulation = useCallback(async (runId: number) => {
+    setSimLoading(true);
+    setSimulation(null);
+    try {
+      const data = await backtestApi.decisionMatrixSimulation(runId);
+      setSimulation(data);
+    } catch {
+      showSnack("Không thể tải mô phỏng matrix V2", "error");
+    } finally {
+      setSimLoading(false);
+    }
+  }, []);
+
   /* submit form */
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -183,6 +212,7 @@ export default function BacktestPage() {
         symbols,
         horizons,
         maxSymbols,
+        dataMode: dataMode || undefined,
         dryRun,
         confirmRun: !dryRun,
       };
@@ -215,7 +245,6 @@ export default function BacktestPage() {
         ),
       ].sort((a, b) => Number(a) - Number(b))
     : [];
-
   return (
     <Box sx={{ p: 3, maxWidth: 1400, mx: "auto" }}>
       <Typography variant="h4" gutterBottom>
@@ -265,7 +294,7 @@ export default function BacktestPage() {
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
-              label="Horizons"
+              label="Khung đánh giá"
               fullWidth
               size="small"
               value={horizonsText}
@@ -281,6 +310,22 @@ export default function BacktestPage() {
               value={maxSymbols}
               onChange={(e) => setMaxSymbols(Number(e.target.value))}
             />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <TextField
+              select
+              label="Chế độ dữ liệu"
+              fullWidth
+              size="small"
+              value={dataMode}
+              onChange={(e) => setDataMode(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            >
+              <MenuItem value="">Tự động</MenuItem>
+              <MenuItem value="HISTORICAL_FUNDAMENTALS_BACKTEST">
+                Dữ liệu tài chính lịch sử
+              </MenuItem>
+            </TextField>
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2 }}>
             <FormControlLabel
@@ -415,7 +460,7 @@ export default function BacktestPage() {
           {(summary.lowSampleWarnings ?? []).length > 0 && (
             <Alert severity="warning">
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                Máº«u tháº¥p, chÆ°a nÃªn káº¿t luáº­n
+                Mẫu thấp, chưa nên kết luận
               </Typography>
               {summary.lowSampleWarnings?.map((w, i) => (
                 <Typography key={i} variant="body2">
@@ -466,7 +511,10 @@ export default function BacktestPage() {
           <Paper sx={{ p: 2 }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
               <Typography variant="body2" color="text.secondary">
-                Data mode / bias
+                <MetricTooltip
+                  label="Chế độ dữ liệu / độ lệch"
+                  title="Chế độ dữ liệu cho biết backtest dùng snapshot hiện tại, snapshot theo thời điểm, hay dữ liệu tài chính lịch sử. Độ lệch cho biết mức rủi ro look-ahead bias."
+                />
               </Typography>
               <Chip label={summary.dataMode ?? "Chưa rõ"} size="small" variant="outlined" />
               <Chip
@@ -475,19 +523,37 @@ export default function BacktestPage() {
                 size="small"
               />
             </Stack>
+            {summary.lookAheadBiasLevel === "HIGH" && (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Backtest này dùng dữ liệu hiện tại soi quá khứ, chỉ dùng để khám phá pattern, không dùng làm bằng chứng đầu tư.
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Tín hiệu mô phỏng — Không phải khuyến nghị đầu tư
+                </Typography>
+              </Alert>
+            )}
+            {summary.dataMode === "HISTORICAL_FUNDAMENTALS_BACKTEST" && (
+              <Alert severity="info" sx={{ mt: 1 }}>
+                Data mode này recompute từ BCTC annual lịch sử và giá &lt;= signalDate. Giả định lag công bố: annual 90 ngày, quarter 45 ngày; hiện chưa có publish_date thật.
+              </Alert>
+            )}
           </Paper>
           <Paper sx={{ p: 2 }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
               <Typography variant="body2" color="text.secondary">
-                Äá»™ tin cáº­y máº«u
+                <MetricTooltip
+                  label="Độ tin cậy mẫu"
+                  title="Đánh giá dựa trên số mẫu đã đủ hạn. Mẫu dưới 30 chưa nên kết luận; từ 100 mẫu trở lên mới đáng đưa vào review nghiêm túc."
+                />
               </Typography>
               <Chip
-                label={summary.sampleReliabilityLevel ?? "ChÆ°a rÃµ"}
+                label={summary.sampleReliabilityLevel ?? "Chưa rõ"}
                 color={reliabilityColor[summary.sampleReliabilityLevel ?? ""] ?? "default"}
                 size="small"
               />
               <Typography variant="body2" color="text.secondary">
-                NgÆ°á»¡ng tá»‘i thiá»ƒu: {summary.minSampleThreshold ?? 30}
+                Ngưỡng tối thiểu: {summary.minSampleThreshold ?? 30}
               </Typography>
             </Stack>
           </Paper>
@@ -495,13 +561,13 @@ export default function BacktestPage() {
           {/* horizon summary */}
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Theo horizon
+              Theo khung đánh giá
             </Typography>
             <TableContainer>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Horizon</TableCell>
+                    <TableCell>Khung</TableCell>
                     <TableCell align="right">Số lượng</TableCell>
                     <TableCell align="right">Lợi nhuận TB (%)</TableCell>
                     <TableCell align="right">Trung vị (%)</TableCell>
@@ -513,10 +579,30 @@ export default function BacktestPage() {
                     <TableCell align="right">Top1 / Top3</TableCell>
                     <TableCell align="right">Benchmark {summary.benchmarkCode} (%)</TableCell>
                     <TableCell align="right">Benchmark VN30 (%)</TableCell>
-                    <TableCell align="right">Alpha TB (%)</TableCell>
-                    <TableCell align="right">LN ròng TB (%)</TableCell>
-                    <TableCell align="right">Alpha WR (%)</TableCell>
-                    <TableCell align="right">Win Rate (%)</TableCell>
+                    <TableCell align="right">
+                      <MetricTooltip
+                        label="Alpha TB (%)"
+                        title="Alpha trung bình = lợi nhuận tín hiệu trừ lợi nhuận benchmark cùng kỳ."
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <MetricTooltip
+                        label="LN ròng TB (%)"
+                        title="Lợi nhuận trung bình sau khi trừ chi phí giao dịch giả định."
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <MetricTooltip
+                        label="Alpha WR (%)"
+                        title="Tỷ lệ mẫu có alpha dương, tức là thắng benchmark."
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <MetricTooltip
+                        label="Tỷ lệ thắng (%)"
+                        title="Tỷ lệ tín hiệu có lợi nhuận dương theo cổ phiếu, chưa so với benchmark."
+                      />
+                    </TableCell>
                     <TableCell align="right">Thắng</TableCell>
                     <TableCell align="right">Thua</TableCell>
                     <TableCell align="right">Ngang</TableCell>
@@ -674,6 +760,162 @@ export default function BacktestPage() {
             </TableContainer>
           </Paper>
 
+          {summary.byShadowLabel && (
+            <Paper sx={{ p: 3 }}>
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                <Typography variant="h6">Nhãn mô phỏng</Typography>
+                <Alert severity="warning">
+                  Các nhãn này chỉ dùng để theo dõi mô phỏng, chưa phải khuyến nghị mua.
+                </Alert>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                  <Chip label={`WATCHLIST_STRONG: ${summary.strongWatchlistCount ?? 0}`} size="small" />
+                  <Chip label={`Alpha 30D: ${fmt(summary.strongWatchlistAlpha30D)}`} size="small" />
+                  <Chip
+                    label={summary.strongWatchlistBeatBaseline ? "Vượt baseline" : "Chưa vượt baseline"}
+                    color={summary.strongWatchlistBeatBaseline ? "success" : "warning"}
+                    size="small"
+                  />
+                </Stack>
+              </Stack>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Label</TableCell>
+                      <TableCell align="right">Số lượng</TableCell>
+                      <TableCell align="right">Mẫu đánh giá</TableCell>
+                      <TableCell>Độ tin cậy</TableCell>
+                      {allHorizonKeys.map((hk) => (
+                        <TableCell key={`shadow-alpha-${hk}`} align="right">
+                          {hk}d - Alpha
+                        </TableCell>
+                      ))}
+                      {allHorizonKeys.map((hk) => (
+                        <TableCell key={`shadow-net-${hk}`} align="right">
+                          {hk}d - LN ròng
+                        </TableCell>
+                      ))}
+                      {allHorizonKeys.map((hk) => (
+                        <TableCell key={`shadow-wr-${hk}`} align="right">
+                          {hk}d - Alpha WR
+                        </TableCell>
+                      ))}
+                      <TableCell>Top mã</TableCell>
+                      <TableCell>Top ngành</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(summary.byShadowLabel).map(([key, item]) => (
+                      <TableRow key={key}>
+                        <TableCell>{item.label}</TableCell>
+                        <TableCell align="right">{item.count}</TableCell>
+                        <TableCell align="right">{item.evaluatedSampleSize}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.reliabilityLevel ?? "Chưa rõ"}
+                            color={reliabilityColor[item.reliabilityLevel ?? ""] ?? "default"}
+                            size="small"
+                          />
+                        </TableCell>
+                        {allHorizonKeys.map((hk) => (
+                          <TableCell key={`shadow-alpha-${key}-${hk}`} align="right" sx={{ color: returnColor(item.avgAlphaReturnByHorizon[hk] ?? 0) }}>
+                            {fmt(item.avgAlphaReturnByHorizon[hk])}
+                          </TableCell>
+                        ))}
+                        {allHorizonKeys.map((hk) => (
+                          <TableCell key={`shadow-net-${key}-${hk}`} align="right" sx={{ color: returnColor(item.avgNetReturnByHorizon[hk] ?? 0) }}>
+                            {fmt(item.avgNetReturnByHorizon[hk])}
+                          </TableCell>
+                        ))}
+                        {allHorizonKeys.map((hk) => (
+                          <TableCell key={`shadow-wr-${key}-${hk}`} align="right">
+                            {fmt(item.alphaWinRateByHorizon[hk])}
+                          </TableCell>
+                        ))}
+                        <TableCell>
+                          {item.topSymbol ?? "—"} {item.topSymbolSharePct != null ? `(${fmt(item.topSymbolSharePct)}%)` : ""}
+                        </TableCell>
+                        <TableCell>
+                          {item.topIndustry ?? "—"} {item.topIndustrySharePct != null ? `(${fmt(item.topIndustrySharePct)}%)` : ""}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+
+          {summary.byAlphaFactorTag && Object.keys(summary.byAlphaFactorTag).length > 0 && (
+            <Paper sx={{ p: 3 }}>
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                <Typography variant="h6">Theo dõi alpha factor</Typography>
+                <Alert severity="info">
+                  Các factor này đang được kiểm chứng forward, chưa phải khuyến nghị mua/bán.
+                </Alert>
+              </Stack>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Factor</TableCell>
+                      <TableCell>Trạng thái</TableCell>
+                      <TableCell align="right">Số lượng</TableCell>
+                      <TableCell align="right">Mẫu 30D</TableCell>
+                      <TableCell align="right">Alpha TB 30D</TableCell>
+                      <TableCell align="right">Alpha trung vị 30D</TableCell>
+                      <TableCell align="right">Alpha WR 30D</TableCell>
+                      <TableCell align="right">LN ròng 30D</TableCell>
+                      <TableCell>Top mã</TableCell>
+                      <TableCell>Top ngành</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(summary.byAlphaFactorTag).map(([key, item]) => (
+                      <TableRow key={key}>
+                        <TableCell>
+                          <Stack spacing={0.25}>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              {item.tag}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {item.description ?? key}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.status}
+                            color={alphaFactorStatusColor[item.status] ?? "default"}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">{item.count}</TableCell>
+                        <TableCell align="right">{item.evaluatedSampleSize}</TableCell>
+                        <TableCell align="right" sx={{ color: returnColor(item.avgAlphaReturnByHorizon["30"] ?? 0), fontWeight: 600 }}>
+                          {fmt(item.avgAlphaReturnByHorizon["30"])}
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: returnColor(item.medianAlphaReturnByHorizon["30"] ?? 0) }}>
+                          {fmt(item.medianAlphaReturnByHorizon["30"])}
+                        </TableCell>
+                        <TableCell align="right">{fmt(item.alphaWinRateByHorizon["30"])}%</TableCell>
+                        <TableCell align="right" sx={{ color: returnColor(item.avgNetReturnByHorizon["30"] ?? 0) }}>
+                          {fmt(item.avgNetReturnByHorizon["30"])}
+                        </TableCell>
+                        <TableCell>
+                          {item.topSymbol ?? "—"} {item.topSymbolSharePct != null ? `(${fmt(item.topSymbolSharePct)}%)` : ""}
+                        </TableCell>
+                        <TableCell>
+                          {item.topIndustry ?? "—"} {item.topIndustrySharePct != null ? `(${fmt(item.topIndustrySharePct)}%)` : ""}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+
           <GroupSummaryTable
             title="Theo độ tin cậy dữ liệu"
             groups={summary.byConfidence}
@@ -687,17 +929,45 @@ export default function BacktestPage() {
           />
 
           {/* top winners */}
-          <SignalTable title="Top winners (lợi nhuận)" signals={summary.topWinners} />
+          <SignalTable title="Top lợi nhuận tốt nhất" signals={summary.topWinners} />
 
           {/* top losers */}
-          <SignalTable title="Top losers (lợi nhuận)" signals={summary.topLosers} />
+          <SignalTable title="Top lợi nhuận kém nhất" signals={summary.topLosers} />
 
           {/* top alpha signals */}
-          <SignalTable title="Top positive alpha" signals={summary.topPositiveAlpha ?? []} />
-          <SignalTable title="Top negative alpha" signals={summary.topNegativeAlpha ?? []} />
+          <SignalTable title="Top alpha tốt nhất" signals={summary.topPositiveAlpha ?? []} />
+          <SignalTable title="Top alpha kém nhất" signals={summary.topNegativeAlpha ?? []} />
 
           {/* diagnostic */}
           {summary.diagnostic && <DiagnosticPanel diagnostic={summary.diagnostic} />}
+
+          {/* simulation V2 button */}
+          {selectedRunId && (
+            <Paper sx={{ p: 3 }}>
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                <Typography variant="h6">Mô phỏng ma trận quyết định V2</Typography>
+                <Button
+                  variant="outlined"
+                  onClick={() => loadSimulation(selectedRunId)}
+                  disabled={simLoading}
+                  startIcon={simLoading ? <CircularProgress size={18} /> : undefined}
+                >
+                  {simLoading ? "Đang tải..." : simulation ? "Tải lại" : "Chạy mô phỏng"}
+                </Button>
+              </Stack>
+              <Alert severity="info" sx={{ mt: 1 }}>
+                <Typography variant="body2">
+                  Mô phỏng ma trận chất lượng × định giá. Chỉ mang tính tham khảo, chưa áp dụng vào scoring production.
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Tín hiệu mô phỏng — Không phải khuyến nghị đầu tư
+                </Typography>
+              </Alert>
+            </Paper>
+          )}
+
+          {/* simulation results */}
+          {simulation && <SimulationPanel simulation={simulation} />}
         </Stack>
       )}
 
@@ -806,6 +1076,80 @@ function GroupSummaryTable({
           </TableBody>
         </Table>
       </TableContainer>
+    </Paper>
+  );
+}
+
+function SimulationPanel({ simulation }: { simulation: DecisionMatrixSimulationResponse }) {
+  const comparison = simulation.comparison;
+
+  return (
+    <Paper sx={{ p: 3 }}>
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="h6">Kết quả mô phỏng Matrix V2</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Chỉ là mô phỏng - chưa áp dụng vào scoring production.
+          </Typography>
+        </Box>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary">Tổng tín hiệu</Typography>
+              <Typography variant="h6">{comparison.totalSignals}</Typography>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary">Nâng / hạ</Typography>
+              <Typography variant="h6">{comparison.upgradedCount} / {comparison.downgradedCount}</Typography>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary">Alpha 7D chung</Typography>
+              <Typography variant="h6" sx={{ color: returnColor(comparison.overallAvgAlpha7d ?? 0) }}>
+                {fmt(comparison.overallAvgAlpha7d)}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary">Giảm false positive</Typography>
+              <Typography variant="h6">{comparison.falsePositiveReduction}</Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Quyết định V2</TableCell>
+                <TableCell align="right">Số lượng</TableCell>
+                <TableCell align="right">Alpha 7D</TableCell>
+                <TableCell align="right">Alpha 14D</TableCell>
+                <TableCell align="right">Alpha 30D</TableCell>
+                <TableCell align="right">Alpha WR 7D</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {simulation.bySimulatedDecision.map((row) => (
+                <TableRow key={row.decision}>
+                  <TableCell>{row.decision}</TableCell>
+                  <TableCell align="right">{row.count}</TableCell>
+                  <TableCell align="right" sx={{ color: returnColor(row.avgAlpha7d ?? 0) }}>{fmt(row.avgAlpha7d)}</TableCell>
+                  <TableCell align="right" sx={{ color: returnColor(row.avgAlpha14d ?? 0) }}>{fmt(row.avgAlpha14d)}</TableCell>
+                  <TableCell align="right" sx={{ color: returnColor(row.avgAlpha30d ?? 0) }}>{fmt(row.avgAlpha30d)}</TableCell>
+                  <TableCell align="right">{fmt(row.alphaWinRate7d)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <Typography variant="body2" color="text.secondary">
+          {simulation.disclaimer}
+        </Typography>
+      </Stack>
     </Paper>
   );
 }

@@ -5,6 +5,7 @@ export interface BacktestRunRequest {
   horizons?: number[];
   decisions?: string[];
   maxSymbols?: number;
+  dataMode?: string;
   dryRun: boolean;
   confirmRun: boolean;
 }
@@ -91,9 +92,42 @@ export interface GroupSummary {
   alphaWinRateByHorizon: Record<string, number | null>;
 }
 
+export interface ShadowLabelSummary {
+  label: string;
+  count: number;
+  sampleSize: number;
+  evaluatedSampleSize: number;
+  reliabilityLevel?: string | null;
+  avgAlphaReturnByHorizon: Record<string, number | null>;
+  avgNetReturnByHorizon: Record<string, number | null>;
+  alphaWinRateByHorizon: Record<string, number | null>;
+  topSymbol?: string | null;
+  topSymbolSharePct?: number | null;
+  topIndustry?: string | null;
+  topIndustrySharePct?: number | null;
+}
+
+export interface AlphaFactorSummary {
+  tag: string;
+  description?: string | null;
+  count: number;
+  sampleSize: number;
+  evaluatedSampleSize: number;
+  status: "TRACKING" | "PROMISING" | "FAILED" | "INSUFFICIENT" | string;
+  avgAlphaReturnByHorizon: Record<string, number | null>;
+  medianAlphaReturnByHorizon: Record<string, number | null>;
+  avgNetReturnByHorizon: Record<string, number | null>;
+  alphaWinRateByHorizon: Record<string, number | null>;
+  topSymbol?: string | null;
+  topSymbolSharePct?: number | null;
+  topIndustry?: string | null;
+  topIndustrySharePct?: number | null;
+}
+
 export interface SignalDetail {
   signalId: number;
   stockCode: string;
+  industryGroup: string | null;
   signalDate: string;
   decision: string;
   score: number;
@@ -138,6 +172,57 @@ export interface DiagnosticSection {
   insights: string[];
 }
 
+export interface SimulationSignal {
+  signalId: number;
+  stockCode: string;
+  industryGroup: string | null;
+  signalDate: string;
+  currentDecision: string;
+  simulatedDecisionV2: string;
+  qualityZone: string;
+  valuationZone: string;
+  qualityScore: number | null;
+  valuationScore: number | null;
+  matrixRuleApplied: string;
+  alpha7d: number | null;
+  alpha14d: number | null;
+  alpha30d: number | null;
+}
+
+export interface SimulationDecisionSummary {
+  decision: string;
+  count: number;
+  avgAlpha7d: number | null;
+  avgAlpha14d: number | null;
+  avgAlpha30d: number | null;
+  alphaWinRate7d: number | null;
+}
+
+export interface SimulationComparison {
+  totalSignals: number;
+  upgradedCount: number;
+  downgradedCount: number;
+  unchangedCount: number;
+  overallAvgAlpha7d: number | null;
+  candidateAvgAlpha7d: number | null;
+  waitForPriceAvgAlpha7d: number | null;
+  currentFalsePositives: number;
+  simFalsePositives: number;
+  falsePositiveReduction: number;
+}
+
+export interface DecisionMatrixSimulationResponse {
+  runId: number;
+  simulationVersion: string;
+  disclaimer: string;
+  comparison: SimulationComparison;
+  bySimulatedDecision: SimulationDecisionSummary[];
+  byCurrentDecision: SimulationDecisionSummary[];
+  signals: SimulationSignal[];
+  signalsTruncated: boolean;
+  totalSignalCount: number;
+}
+
 export interface BacktestSummaryResponse {
   runId: number;
   fromDate: string;
@@ -156,8 +241,13 @@ export interface BacktestSummaryResponse {
   sampleReliabilityLevel?: string | null;
   minSampleThreshold?: number;
   lowSampleWarnings?: string[];
+  strongWatchlistCount?: number;
+  strongWatchlistAlpha30D?: number | null;
+  strongWatchlistBeatBaseline?: boolean;
   byHorizon: Record<string, HorizonSummary>;
   byDecision: Record<string, DecisionSummary>;
+  byShadowLabel?: Record<string, ShadowLabelSummary>;
+  byAlphaFactorTag?: Record<string, AlphaFactorSummary>;
   byConfidence: Record<string, GroupSummary>;
   byIndustry: Record<string, GroupSummary>;
   topWinners: SignalDetail[];

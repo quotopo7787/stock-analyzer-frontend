@@ -10,6 +10,7 @@ import {
   ShowChartOutlined, StorageOutlined, TrendingUpOutlined, WarningAmberOutlined,
 } from "@mui/icons-material";
 import MarketContextCard from "../components/MarketContextCard";
+import MetricTooltip from "../components/MetricTooltip";
 import { portfolioApi } from "../api/portfolioApi";
 import { decisionPlanApi } from "../api/decisionPlanApi";
 import { dataGapApi } from "../api/dataGapApi";
@@ -85,12 +86,12 @@ export default function DashboardPage() {
 
     {errors.portfolio && <Alert severity="warning" sx={{ mb: 2 }}>{errors.portfolio}</Alert>}
     <Box sx={{ ...cardGridSx, mb: 2.5 }}>
-      <Metric label="Tổng giá trị danh mục" value={formatVnd(summary?.totalMarketValue)} icon={<AccountBalanceWalletOutlined />} iconTone="blue" />
-      <Metric label="Lãi/lỗ tạm tính" value={formatVnd(summary?.totalUnrealizedPnL)} tone={numberTone(summary?.totalUnrealizedPnL)} icon={<TrendingUpOutlined />} iconTone="green" subValue={summary?.totalUnrealizedPnLPercent != null ? `▲ ${formatPercent(summary.totalUnrealizedPnLPercent)}` : undefined} />
-      <Metric label="% lãi/lỗ" value={formatPercent(summary?.totalUnrealizedPnLPercent)} tone={numberTone(summary?.totalUnrealizedPnLPercent)} icon={<PercentOutlined />} iconTone="green" />
-      <Metric label="Số mã đang nắm" value={formatNumber(summary?.activePositionCount)} icon={<DonutSmallOutlined />} iconTone="blue" />
-      <Metric label="Số mã vượt tỷ trọng" value={formatNumber(summary?.overMaxPositionCount)} tone="warning" icon={<WarningAmberOutlined />} iconTone="orange" />
-      <Metric label="Số mã thiếu giá" value={formatNumber(summary?.missingPriceCount)} tone={summary?.missingPriceCount ? "warning" : undefined} icon={<BlockOutlined />} iconTone="purple" />
+          <Metric label="Tổng giá trị danh mục" tooltip="Tổng giá trị thị trường hiện tại của các vị thế đang nắm giữ." value={formatVnd(summary?.totalMarketValue)} icon={<AccountBalanceWalletOutlined />} iconTone="blue" />
+          <Metric label="Lãi/lỗ tạm tính" tooltip="Lãi/lỗ chưa chốt, tính theo giá hiện tại so với giá vốn." value={formatVnd(summary?.totalUnrealizedPnL)} tone={numberTone(summary?.totalUnrealizedPnL)} icon={<TrendingUpOutlined />} iconTone="green" subValue={summary?.totalUnrealizedPnLPercent != null ? `▲ ${formatPercent(summary.totalUnrealizedPnLPercent)}` : undefined} />
+          <Metric label="% lãi/lỗ" tooltip="Tỷ lệ lãi/lỗ tạm tính trên tổng vốn đầu tư của danh mục." value={formatPercent(summary?.totalUnrealizedPnLPercent)} tone={numberTone(summary?.totalUnrealizedPnLPercent)} icon={<PercentOutlined />} iconTone="green" />
+          <Metric label="Số mã đang nắm" tooltip="Số cổ phiếu đang có vị thế active trong danh mục." value={formatNumber(summary?.activePositionCount)} icon={<DonutSmallOutlined />} iconTone="blue" />
+          <Metric label="Số mã vượt tỷ trọng" tooltip="Số mã có tỷ trọng hiện tại vượt mức tối đa trong kế hoạch phân bổ vốn." value={formatNumber(summary?.overMaxPositionCount)} tone="warning" icon={<WarningAmberOutlined />} iconTone="orange" />
+          <Metric label="Số mã thiếu giá" tooltip="Số vị thế chưa có giá cập nhật đủ mới để tính danh mục chính xác." value={formatNumber(summary?.missingPriceCount)} tone={summary?.missingPriceCount ? "warning" : undefined} icon={<BlockOutlined />} iconTone="purple" />
     </Box>
 
     <MarketContextCard />
@@ -172,11 +173,13 @@ function Section({ title, icon, actionLabel, onAction, error, children }: { titl
   </CardContent></Card>;
 }
 
-function Metric({ label, value, tone, compact, icon, iconTone = "blue", subValue, onClick }: { label: string; value: string; tone?: "positive" | "negative" | "warning"; compact?: boolean; icon?: React.ReactNode; iconTone?: "blue" | "green" | "orange" | "purple"; subValue?: string; onClick?: () => void }) {
+function Metric({ label, value, tone, compact, icon, iconTone = "blue", subValue, onClick, tooltip }: { label: string; value: string; tone?: "positive" | "negative" | "warning"; compact?: boolean; icon?: React.ReactNode; iconTone?: "blue" | "green" | "orange" | "purple"; subValue?: string; onClick?: () => void; tooltip?: string }) {
   const iconColors = { blue: { bg: "#eaf3ff", fg: "#1677ee" }, green: { bg: "#e8f7ee", fg: "#17974c" }, orange: { bg: "#fff0e5", fg: "#f46b18" }, purple: { bg: "#f2ecff", fg: "#6d5ce7" } }[iconTone];
   return <Card variant="outlined" onClick={onClick} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} aria-label={onClick ? `Lọc ${label}` : undefined} sx={{ boxShadow: compact ? "none" : undefined, minWidth: 0, cursor: onClick ? "pointer" : "default", transition: "transform .15s ease, border-color .15s ease", "&:hover": onClick ? { transform: "translateY(-2px)", borderColor: "primary.light" } : undefined, "&:focus-visible": onClick ? { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } : undefined }}><CardContent sx={{ p: compact ? 1.4 : 2, minHeight: compact ? 112 : 138, "&:last-child": { pb: compact ? 1.4 : 2 } }}>
     {icon && <Box sx={{ width: compact ? 32 : 40, height: compact ? 32 : 40, borderRadius: 1.5, bgcolor: iconColors.bg, color: iconColors.fg, display: "grid", placeItems: "center", mb: compact ? 1 : 1.4, "& svg": { fontSize: compact ? 19 : 23 } }}>{icon}</Box>}
-    <Typography variant="body2" color="text.secondary" sx={{ fontSize: compact ? 12 : 13 }}>{label}</Typography>
+    <Typography variant="body2" color="text.secondary" sx={{ fontSize: compact ? 12 : 13 }}>
+      {tooltip ? <MetricTooltip label={label} title={tooltip} /> : label}
+    </Typography>
     <Typography variant={compact ? "h6" : "h5"} sx={{ color: toneColor(tone), mt: 0.45, fontSize: compact ? 20 : 21 }}>{value}</Typography>
     {subValue && <Typography variant="caption" sx={{ color: "success.main", fontWeight: 700 }}>{subValue}</Typography>}
   </CardContent></Card>;

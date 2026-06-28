@@ -7,6 +7,7 @@ import {
   Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from "@mui/material";
 import { portfolioApi } from "../api/portfolioApi";
+import MoneyTextField from "../components/MoneyTextField";
 import type { PortfolioPosition, PortfolioPositionPayload, PortfolioPositionStatus, PortfolioSummary } from "../types/portfolio";
 
 const pageSize = 20;
@@ -215,9 +216,9 @@ function PositionDialog({ open, position, prefillStockCode, onClose, onSaved }: 
     <DialogTitle>{position ? `Vị thế ${position.stockCode}` : "Thêm vị thế"}</DialogTitle><DialogContent>
       <Stack spacing={2} sx={{ mt: 1 }}>{error && <Alert severity="error">{error}</Alert>}
         <TextField label="Mã cổ phiếu" value={stockCode} onChange={(event) => setStockCode(event.target.value.toUpperCase())} disabled={Boolean(position)} required />
-        <TextField label="Decision Plan ID" type="number" value={decisionPlanId} onChange={(event) => setDecisionPlanId(event.target.value)} helperText="Không bắt buộc" />
+        <TextField label="ID kế hoạch đầu tư" type="number" value={decisionPlanId} onChange={(event) => setDecisionPlanId(event.target.value)} helperText="Không bắt buộc" />
         <TextField label="Số lượng" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
-        <TextField label="Giá vốn trung bình (VND)" type="number" value={averageCost} onChange={(event) => setAverageCost(event.target.value)} helperText="Nhập VND, ví dụ 45.000" required />
+        <MoneyTextField label="Giá vốn trung bình (VND)" value={averageCost} onChange={setAverageCost} helperText="Nhập VND, ví dụ 45.000" required />
         <TextField label="Ghi chú" value={notes} onChange={(event) => setNotes(event.target.value)} multiline minRows={3} />
       </Stack></DialogContent><DialogActions><Button onClick={onClose} disabled={saving}>Hủy</Button>
       <Button variant="contained" onClick={() => void save()} disabled={saving}>{saving ? <CircularProgress size={22} /> : "Lưu vị thế"}</Button>

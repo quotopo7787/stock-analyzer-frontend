@@ -15,11 +15,8 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  FormControl,
-  InputLabel,
   LinearProgress,
   MenuItem,
-  NativeSelect,
   Paper,
   Snackbar,
   Stack,
@@ -40,6 +37,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import SyncAltIcon from "@mui/icons-material/SyncAlt";
 import { decisionPlanApi } from "../api/decisionPlanApi";
 import { valuationScenarioApi } from "../api/valuationScenarioApi";
+import MoneyTextField from "../components/MoneyTextField";
 import type { DecisionPlanDetail, DecisionPlanListItem } from "../types/decisionPlans";
 import type {
   ValuationScenarioApplyResponse,
@@ -213,42 +211,75 @@ export default function ValuationScenariosPage() {
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ alignItems: { md: "center" } }}>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            sx={{
+              alignItems: { xs: "stretch", md: "center" },
+              flexWrap: "wrap",
+              "& .MuiTextField-root": {
+                minWidth: { xs: "100%", md: 180 },
+              },
+            }}
+          >
             <TextField
               label="Mã cổ phiếu"
               value={stockInput}
               onChange={(event) => setStockInput(event.target.value.toUpperCase())}
               onKeyDown={(event) => { if (event.key === "Enter") applyStockFilter(); }}
               placeholder="FPT, CMG..."
-              sx={{ minWidth: { md: 190 } }}
+              sx={{ minWidth: { md: 210 } }}
+              size="small"
             />
-            <FormControl sx={{ minWidth: 170 }}>
-              <InputLabel htmlFor="valuation-method-filter">Phương pháp</InputLabel>
-              <NativeSelect
-                id="valuation-method-filter"
-                value={method}
-                onChange={(event) => { setMethod(event.target.value as ValuationScenarioMethod | ""); setPage(0); }}
-              >
-                <option value="">Tất cả</option>
-                {methods.map((value) => <option key={value} value={value}>{methodLabels[value]}</option>)}
-              </NativeSelect>
-            </FormControl>
-            <FormControl sx={{ minWidth: 170 }}>
-              <InputLabel htmlFor="valuation-status-filter">Trạng thái</InputLabel>
-              <NativeSelect
-                id="valuation-status-filter"
-                value={status}
-                onChange={(event) => { setStatus(event.target.value as ValuationScenarioStatus | ""); setPage(0); }}
-              >
-                <option value="">Tất cả</option>
-                {statuses.map((value) => <option key={value} value={value}>{statusLabels[value]}</option>)}
-              </NativeSelect>
-            </FormControl>
-            <Button variant="contained" onClick={applyStockFilter}>Áp dụng</Button>
-            <Button variant="outlined" onClick={resetFilters}>Reset</Button>
-            <Typography color="text.secondary" sx={{ ml: { md: "auto" } }}>
-              {data?.totalElements ?? 0} kịch bản
-            </Typography>
+            <TextField
+              select
+              label="Phương pháp"
+              value={method}
+              onChange={(event) => { setMethod(event.target.value as ValuationScenarioMethod | ""); setPage(0); }}
+              size="small"
+              sx={{ minWidth: { md: 180 } }}
+            >
+              <MenuItem value="">Tất cả</MenuItem>
+              {methods.map((value) => (
+                <MenuItem key={value} value={value}>
+                  {methodLabels[value]}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Trạng thái"
+              value={status}
+              onChange={(event) => { setStatus(event.target.value as ValuationScenarioStatus | ""); setPage(0); }}
+              size="small"
+              sx={{ minWidth: { md: 180 } }}
+            >
+              <MenuItem value="">Tất cả</MenuItem>
+              {statuses.map((value) => (
+                <MenuItem key={value} value={value}>
+                  {statusLabels[value]}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Stack
+              direction="row"
+              spacing={1.5}
+              sx={{
+                alignItems: "center",
+                flexWrap: "wrap",
+                ml: { md: 0.5 },
+              }}
+            >
+              <Button variant="contained" onClick={applyStockFilter} sx={{ minHeight: 40 }}>
+                Áp dụng
+              </Button>
+              <Button variant="outlined" onClick={resetFilters} sx={{ minHeight: 40 }}>
+                Reset
+              </Button>
+              <Typography color="text.secondary" sx={{ px: 1 }}>
+                {data?.totalElements ?? 0} kịch bản
+              </Typography>
+            </Stack>
           </Stack>
         </CardContent>
       </Card>
@@ -490,6 +521,10 @@ function ValuationScenarioDialog({
     value: form[name],
     onChange: (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [name]: event.target.value })),
   });
+  const moneyField = (name: keyof FormState) => ({
+    value: form[name],
+    onChange: (value: string) => setForm((current) => ({ ...current, [name]: value })),
+  });
 
   const save = async () => {
     const validationError = validateForm(form);
@@ -564,27 +599,27 @@ function ValuationScenarioDialog({
           >
             {statuses.map((value) => <MenuItem key={value} value={value}>{statusLabels[value]}</MenuItem>)}
           </TextField>
-          <TextField label="Decision Plan ID liên kết" type="number" {...field("linkedDecisionPlanId")} helperText="Không bắt buộc" />
+          <TextField label="ID kế hoạch đầu tư liên kết" type="number" {...field("linkedDecisionPlanId")} helperText="Không bắt buộc" />
 
           {form.method === "PE" && (
             <>
-              <TextField label="EPS (VND/cp)" type="number" {...field("eps")} required />
+              <MoneyTextField label="EPS (VND/cp)" {...moneyField("eps")} required />
               <TextField label="P/E mục tiêu" type="number" {...field("peMultiple")} required />
             </>
           )}
           {form.method === "PB" && (
             <>
-              <TextField label="Book value/share (VND/cp)" type="number" {...field("bookValuePerShare")} required />
+              <MoneyTextField label="Book value/share (VND/cp)" {...moneyField("bookValuePerShare")} required />
               <TextField label="P/B mục tiêu" type="number" {...field("pbMultiple")} required />
             </>
           )}
           {form.method === "MANUAL" && (
-            <TextField label="Fair value (VND/cp)" type="number" {...field("fairValue")} required />
+            <MoneyTextField label="Fair value (VND/cp)" {...moneyField("fairValue")} required />
           )}
 
           <TextField label="Margin of safety (%)" type="number" {...field("marginOfSafetyPercent")} />
-          <TextField label="Giá mua mục tiêu (VND/cp)" type="number" {...field("targetBuyPrice")} helperText="Có thể để trống để backend tự tính theo margin" />
-          <TextField label="Giá bán mục tiêu (VND/cp)" type="number" {...field("targetSellPrice")} />
+          <MoneyTextField label="Giá mua mục tiêu (VND/cp)" {...moneyField("targetBuyPrice")} helperText="Có thể để trống để backend tự tính theo margin" />
+          <MoneyTextField label="Giá bán mục tiêu (VND/cp)" {...moneyField("targetSellPrice")} />
           <TextField label="Ghi chú nguồn" {...field("sourceNote")} />
 
           <Paper variant="outlined" sx={{ gridColumn: "1 / -1", p: 2, bgcolor: "#f8fbff" }}>
@@ -679,7 +714,7 @@ function ApplyToDecisionPlanDialog({
           setSelectedPlanId(String(defaultPlanId));
           setSelectedPlan(await decisionPlanApi.get(defaultPlanId));
         } else {
-          setError("Chưa có Decision Plan cùng mã cổ phiếu. Hãy tạo Decision Plan trước rồi quay lại áp dụng định giá.");
+          setError("Chưa có kế hoạch đầu tư cùng mã cổ phiếu. Hãy tạo kế hoạch trước rồi quay lại áp dụng định giá.");
         }
       } catch (err) {
         if (!cancelled) setError(apiErrorMessage(err));
@@ -706,7 +741,7 @@ function ApplyToDecisionPlanDialog({
 
   const apply = async () => {
     if (!scenario || !selectedPlanId) {
-      setError("Bạn cần chọn Decision Plan trước khi áp dụng.");
+      setError("Bạn cần chọn kế hoạch đầu tư trước khi áp dụng.");
       return;
     }
     if (!flags.fairValue && !flags.targetBuyPrice && !flags.targetSellPrice) {
@@ -714,7 +749,7 @@ function ApplyToDecisionPlanDialog({
       return;
     }
     if (!confirmedTarget) {
-      setError("Bạn cần xác nhận đã kiểm tra đúng Decision Plan cần cập nhật.");
+      setError("Bạn cần xác nhận đã kiểm tra đúng kế hoạch đầu tư cần cập nhật.");
       return;
     }
     try {
@@ -743,7 +778,7 @@ function ApplyToDecisionPlanDialog({
   const selectedPlanIsClosedOrArchived = selectedPlanStatus === "CLOSED" || selectedPlanStatus === "ARCHIVED";
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
-      <DialogTitle>Áp dụng định giá vào Decision Plan</DialogTitle>
+      <DialogTitle>Áp dụng định giá vào kế hoạch đầu tư</DialogTitle>
       <DialogContent>
         {loading && <LinearProgress sx={{ mb: 2 }} />}
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -761,11 +796,11 @@ function ApplyToDecisionPlanDialog({
 
           <TextField
             select
-            label="Decision Plan target"
+            label="Kế hoạch đầu tư cần cập nhật"
             value={selectedPlanId}
             onChange={(event) => void changeSelectedPlan(event.target.value)}
             disabled={loading || saving || plans.length === 0}
-            helperText={scenario?.linkedDecisionPlanId ? `Mặc định theo linkedDecisionPlanId #${scenario.linkedDecisionPlanId}` : "Chọn Decision Plan cùng mã cổ phiếu"}
+            helperText={scenario?.linkedDecisionPlanId ? `Mặc định theo ID liên kết #${scenario.linkedDecisionPlanId}` : "Chọn kế hoạch cùng mã cổ phiếu"}
           >
             {plans.map((plan) => (
               <MenuItem key={plan.id} value={String(plan.id)}>
@@ -779,7 +814,7 @@ function ApplyToDecisionPlanDialog({
               <Stack spacing={1}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                   <Typography sx={{ fontWeight: 700 }}>
-                    Target Decision Plan #{selectedPlan.id} · {selectedPlan.stockCode}
+                    Kế hoạch #{selectedPlan.id} · {selectedPlan.stockCode}
                   </Typography>
                   <Chip size="small" label={decisionPlanActionLabels[selectedPlan.action] ?? selectedPlan.action} color="primary" variant="outlined" />
                   <Chip size="small" label={decisionPlanStatusLabels[selectedPlanStatus ?? ""] ?? selectedPlanStatus} color={selectedPlanIsActive ? "success" : "default"} />
@@ -796,7 +831,7 @@ function ApplyToDecisionPlanDialog({
 
           {selectedPlanIsActive && (
             <Alert severity="warning">
-              Bạn đang áp dụng vào Decision Plan đang hoạt động. Hãy kiểm tra kỹ trước khi xác nhận.
+              Bạn đang áp dụng vào kế hoạch đầu tư đang hoạt động. Hãy kiểm tra kỹ trước khi xác nhận.
             </Alert>
           )}
           {selectedPlanIsClosedOrArchived && (
@@ -849,7 +884,7 @@ function ApplyToDecisionPlanDialog({
                 disabled={saving || loading || !selectedPlanId}
               />
             }
-            label="Tôi đã kiểm tra đúng Decision Plan cần cập nhật"
+            label="Tôi đã kiểm tra đúng kế hoạch đầu tư cần cập nhật"
           />
         </Stack>
       </DialogContent>
@@ -937,13 +972,13 @@ function apiErrorMessage(error: unknown) {
     if (error.response?.status === 400 && message) {
       if (message.includes("confirm must be true")) return "Cần xác nhận trước khi áp dụng.";
       if (message.includes("Archived valuation scenario cannot be applied")) return "Không thể áp dụng kịch bản đã lưu trữ.";
-      if (message.includes("Decision Plan does not belong")) return "Decision Plan không cùng mã cổ phiếu với kịch bản định giá.";
+      if (message.includes("Decision Plan does not belong")) return "Kế hoạch đầu tư không cùng mã cổ phiếu với kịch bản định giá.";
       if (message.includes("at least one apply flag")) return "Cần chọn ít nhất một trường giá để áp dụng.";
-      if (message.includes("decisionPlanId is required")) return "Cần chọn Decision Plan trước khi áp dụng.";
+      if (message.includes("decisionPlanId is required")) return "Cần chọn kế hoạch đầu tư trước khi áp dụng.";
       if (message.includes("No selected valuation field")) return "Các trường đã chọn không có giá trị để áp dụng.";
     }
     if (message) return message;
-    if (error.response?.status === 404) return "Không tìm thấy mã cổ phiếu/kịch bản/Decision Plan.";
+    if (error.response?.status === 404) return "Không tìm thấy mã cổ phiếu/kịch bản/kế hoạch đầu tư.";
     if (error.response?.status === 400) return "Dữ liệu định giá chưa hợp lệ. Vui lòng kiểm tra lại.";
   }
   return "Không thể xử lý yêu cầu Valuation Scenario. Vui lòng thử lại.";

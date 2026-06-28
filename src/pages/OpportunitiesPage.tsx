@@ -47,6 +47,9 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import GridViewOutlinedIcon from "@mui/icons-material/GridViewOutlined";
+import FormatListBulletedOutlinedIcon from "@mui/icons-material/FormatListBulletedOutlined";
+import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { Link, useNavigate } from "react-router-dom";
 import { opportunitiesApi } from "../api/opportunitiesApi";
 import {
@@ -55,6 +58,7 @@ import {
 } from "../api/researchThesisDraftStorage";
 import { watchlistApi } from "../api/watchlistApi";
 import { stockApi } from "../api/stockApi";
+import MetricTooltip from "../components/MetricTooltip";
 import type {
   OpportunityDetailItem,
   OpportunityQueryParams,
@@ -237,6 +241,10 @@ export default function OpportunitiesPage() {
     loadOpportunities(defaultFilters);
   };
 
+  const applyFilters = () => {
+    loadOpportunities(filters);
+  };
+
   const changePage = (nextPage: number) => {
     loadOpportunities({
       ...appliedFilters,
@@ -359,43 +367,50 @@ export default function OpportunitiesPage() {
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={2}
-        sx={{ mb: 3, justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
+        sx={{ mb: 2, justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
       >
         <Box>
-          <Typography variant="h4" gutterBottom>
-            Cơ hội đầu tư
-          </Typography>
-          <Typography color="text.secondary" sx={{ maxWidth: 920 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontSize: { xs: 28, md: 34 }, lineHeight: 1.12 }}>
+              Cơ hội đầu tư
+            </Typography>
+            <Chip size="small" label="Sàng lọc mô phỏng" variant="outlined" sx={{ bgcolor: "white" }} />
+          </Stack>
+          <Typography color="text.secondary" sx={{ maxWidth: 920, fontSize: 13.5 }}>
             Danh sách cổ phiếu được sàng lọc bằng dữ liệu tài chính, định giá, thanh khoản và rủi ro.
           </Typography>
         </Box>
 
-        <Button
-          variant="outlined"
-          startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
-          onClick={() => loadOpportunities(appliedFilters)}
-          disabled={loading}
-        >
-          Tải lại
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" } }}>
+          {meta && (
+            <Chip
+              size="small"
+              label={`Cập nhật: ${formatDateTime(meta.snapshotGeneratedAt)}`}
+              variant="outlined"
+              sx={{ bgcolor: "white" }}
+            />
+          )}
+          {meta && <Chip size="small" label={`Đã quét: ${formatNumber(meta.totalBeforeFilters, 0)} mã`} color="primary" variant="outlined" sx={{ bgcolor: "white" }} />}
+          <Button
+            variant="outlined"
+            startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+            onClick={() => loadOpportunities(appliedFilters)}
+            disabled={loading}
+          >
+            Tải lại
+          </Button>
+        </Stack>
       </Stack>
 
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Đây là công cụ sàng lọc, không phải khuyến nghị mua/bán. Điểm cao chỉ giúp nhận diện mã đáng nghiên cứu tiếp.
-      </Alert>
-
-      {meta && <SnapshotStatusBar meta={meta} />}
+      {meta && <SnapshotStatusBar meta={meta} compact />}
 
       {loading && <LinearProgress sx={{ mb: 2 }} />}
 
       <SummaryCards response={data} />
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+      <Card sx={{ mb: 2, borderRadius: 3 }}>
+        <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
           <Stack spacing={1.5}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              Bộ lọc
-            </Typography>
             <Box
               sx={{
                 display: "grid",
@@ -403,9 +418,11 @@ export default function OpportunitiesPage() {
                   xs: "1fr",
                   sm: "repeat(2, minmax(0, 1fr))",
                   lg: "repeat(3, minmax(0, 1fr))",
-                  xl: "repeat(6, minmax(0, 1fr))",
+                  xl: "repeat(6, minmax(0, 1fr)) auto",
                 },
-                gap: 1.5,
+                gap: 1.2,
+                alignItems: "center",
+                "& .MuiOutlinedInput-root": { bgcolor: "#fbfdff" },
               }}
             >
               <TextField
@@ -471,11 +488,22 @@ export default function OpportunitiesPage() {
                   </MenuItem>
                 ))}
               </TextField>
+              <Stack direction="row" spacing={1} sx={{ justifyContent: { xs: "flex-start", xl: "flex-end" } }}>
+                <Button variant="contained" onClick={applyFilters} disabled={loading || isInvalidRange}>
+                  Áp dụng
+                </Button>
+                <Button variant="outlined" onClick={resetFilters} disabled={loading}>
+                  Reset
+                </Button>
+              </Stack>
             </Box>
 
-            <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: "10px !important", "&:before": { display: "none" } }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 44, "& .MuiAccordionSummary-content": { my: 1 } }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>Bộ lọc nâng cao</Typography>
+            <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: "12px !important", bgcolor: "#fbfdff", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, "& .MuiAccordionSummary-content": { my: 0.8 } }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  <TuneOutlinedIcon color="primary" fontSize="small" />
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>Bộ lọc nâng cao</Typography>
+                </Stack>
               </AccordionSummary>
               <AccordionDetails sx={{ pt: 0, pb: 1.5 }}>
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2,minmax(0,1fr))", lg: "repeat(4,minmax(0,1fr))", xl: "repeat(5,minmax(0,1fr))" }, gap: 1.5 }}>
@@ -496,17 +524,9 @@ export default function OpportunitiesPage() {
               </AccordionDetails>
             </Accordion>
 
-            <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "none" }}>
-                Áp dụng
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Bộ lọc tự cập nhật sau khi thay đổi.
-              </Typography>
-              <Button variant="outlined" onClick={resetFilters} disabled={loading}>
-                Reset
-              </Button>
-            </Stack>
+            <Typography variant="caption" color="text.secondary">
+              Bộ lọc tự cập nhật sau khi thay đổi, hoặc bấm Áp dụng để chạy ngay.
+            </Typography>
           </Stack>
         </CardContent>
       </Card>
@@ -527,7 +547,7 @@ export default function OpportunitiesPage() {
 
       <TopIndustries topIndustries={topIndustries} summary={summary} />
 
-      <Card>
+      <Card sx={{ borderRadius: 3 }}>
         <CardContent sx={{ pb: 1 }}>
           <Stack
             direction={{ xs: "column", md: "row" }}
@@ -542,9 +562,29 @@ export default function OpportunitiesPage() {
                   : "Chưa có dữ liệu"}
               </Typography>
             </Box>
-            <Typography variant="body2" color="text.secondary">
-              Giá hiển thị theo đơn vị nghìn đồng/cp.
-            </Typography>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+              <Tooltip title="Dạng lưới">
+                <IconButton
+                  size="small"
+                  aria-label="Dạng lưới"
+                  sx={{ bgcolor: "#e9f2ff", color: "primary.main", border: 1, borderColor: "primary.light" }}
+                >
+                  <GridViewOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Dạng danh sách">
+                <IconButton
+                  size="small"
+                  aria-label="Dạng danh sách"
+                  sx={{ bgcolor: "white", border: 1, borderColor: "divider" }}
+                >
+                  <FormatListBulletedOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+                Giá hiển thị theo đơn vị nghìn đồng/cp.
+              </Typography>
+            </Stack>
           </Stack>
 
           {!loading && items.length === 0 ? (
@@ -628,7 +668,7 @@ export default function OpportunitiesPage() {
   );
 }
 
-function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] }) {
+function SnapshotStatusBar({ meta, compact = false }: { meta: OpportunityWrappedResponse["meta"]; compact?: boolean }) {
   const isFallback = meta.source === "REALTIME_FALLBACK";
   const isStale = meta.isSourceNewerThanSnapshot === true;
   const latestJobStatus = meta.latestJobStatus;
@@ -637,10 +677,12 @@ function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] 
     <Paper
       variant="outlined"
       sx={{
-        mb: 3,
-        p: 1.5,
+        mb: compact ? 1.5 : 3,
+        p: compact ? 1 : 1.5,
         borderColor: isFallback || isStale ? "warning.main" : "divider",
-        bgcolor: "background.paper",
+        bgcolor: "rgba(255,255,255,0.76)",
+        backdropFilter: "blur(12px)",
+        boxShadow: compact ? "0 8px 22px rgba(16, 24, 40, 0.045)" : undefined,
       }}
     >
       <Stack
@@ -649,13 +691,13 @@ function SnapshotStatusBar({ meta }: { meta: OpportunityWrappedResponse["meta"] 
         sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
       >
         <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 1, md: 2 }} sx={{ alignItems: { xs: "flex-start", md: "center" }, flex: 1 }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          {!compact && <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <CalendarMonthOutlinedIcon color="action" fontSize="small" />
             <Typography variant="body2" color="text.secondary">
               Cập nhật: <Box component="span" sx={{ color: "text.primary", fontWeight: 600 }}>{formatDateTime(meta.snapshotGeneratedAt)}</Box>
             </Typography>
-          </Stack>
-          <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />
+          </Stack>}
+          {!compact && <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />}
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <LayersOutlinedIcon color="action" fontSize="small" />
             <Box>
@@ -829,14 +871,39 @@ function OpportunityTable({
           <TableRow>
             <TableCell sx={{ ...stickyRankSx, ...stickyHeadSx }}>#</TableCell>
             <TableCell sx={{ ...stickyCodeSx, ...stickyHeadSx }}>Mã / Tên / Sàn / Ngành</TableCell>
-            <TableCell align="right">Điểm</TableCell>
+            <TableCell align="right">
+              <MetricTooltip
+                label="Điểm"
+                title="Điểm sàng lọc tổng hợp từ chất lượng, tăng trưởng, định giá và dữ liệu. Đây không phải khuyến nghị mua/bán."
+              />
+            </TableCell>
             <TableCell>Trạng thái</TableCell>
             <TableCell>Lý do</TableCell>
-            <TableCell>Độ tin cậy</TableCell>
+            <TableCell>
+              <MetricTooltip
+                label="Độ tin cậy"
+                title="Mức tin cậy của dữ liệu và kết luận. Điểm thấp thường do thiếu dữ liệu, giá cũ hoặc chất lượng dữ liệu chưa đủ."
+              />
+            </TableCell>
             <TableCell>Sẵn sàng</TableCell>
-            <TableCell align="right">Định giá</TableCell>
-            <TableCell align="right">Tăng trưởng</TableCell>
-            <TableCell>Thanh khoản</TableCell>
+            <TableCell align="right">
+              <MetricTooltip
+                label="Định giá"
+                title="P/E là giá trên lợi nhuận mỗi cổ phiếu; P/B là giá trên giá trị sổ sách mỗi cổ phiếu. Chỉ số thấp cần đọc cùng chất lượng doanh nghiệp."
+              />
+            </TableCell>
+            <TableCell align="right">
+              <MetricTooltip
+                label="Tăng trưởng"
+                title="DT là tăng trưởng doanh thu; LN là tăng trưởng lợi nhuận. Tăng trưởng cao cần kiểm tra tính bền vững."
+              />
+            </TableCell>
+            <TableCell>
+              <MetricTooltip
+                label="Thanh khoản"
+                title="Khả năng mua/bán cổ phiếu theo giá hợp lý. Thanh khoản thấp làm tăng rủi ro trượt giá và khó thoát vị thế."
+              />
+            </TableCell>
             <TableCell align="right" sx={{ ...stickyActionSx, ...stickyHeadSx }}>
               Hành động
             </TableCell>
@@ -970,74 +1037,133 @@ function OpportunityDetailDrawer({
 }) {
   const primaryReasons = primaryDetailReasons(detail);
   const technicalReasons = technicalDetailReasons(detail);
+  const riskReasons = detail ? mergeTextLists(detail.mainRisks, detail.risks).map(humanizeDetailText) : [];
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" scroll="paper">
-      <DialogTitle sx={{ p: 0 }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="xl"
+      scroll="paper"
+      slotProps={{
+        paper: {
+          sx: {
+          width: "min(1480px, calc(100vw - 24px))",
+          maxHeight: "calc(100vh - 18px)",
+          borderRadius: 1.25,
+            overflow: "hidden",
+          },
+        },
+      }}
+    >
+      <DialogTitle sx={{ p: 0, position: "sticky", top: 0, zIndex: 3, bgcolor: "background.paper" }}>
         <Box
           sx={{
-            p: { xs: 2, sm: 3 },
-            pb: 2,
+            p: { xs: 1.25, sm: 1.5 },
+            pr: { xs: 6, sm: 7 },
             bgcolor: "background.paper",
             borderBottom: "1px solid",
             borderColor: "divider",
+            position: "relative",
           }}
         >
-          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-            <Box>
-              <Typography variant="h5">{code}</Typography>
-              <Typography color="text.secondary">{detail?.name ?? "Đang tải chi tiết"}</Typography>
+          <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Stack direction="row" spacing={1.1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                <Box
+                  sx={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 2,
+                    display: "grid",
+                    placeItems: "center",
+                    fontWeight: 900,
+                    color: "primary.main",
+                    bgcolor: "#eef6ff",
+                    border: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  {code.slice(0, 3)}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                    <Typography variant="h4" sx={{ fontSize: { xs: 24, md: 30 }, lineHeight: 1 }}>
+                      {code}
+                    </Typography>
+                    <Typography color="text.secondary" sx={{ fontSize: 14 }}>
+                      {detail?.name ?? "Đang tải chi tiết"}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      color="warning"
+                      variant="outlined"
+                      label="Sàng lọc sơ bộ, không phải khuyến nghị mua/bán"
+                    />
+                  </Stack>
+                  {detail && (
+                    <Stack direction="row" spacing={0.75} sx={{ mt: 1, flexWrap: "wrap", rowGap: 0.75 }}>
+                      {detail.exchange && <Chip size="small" label={detail.exchange} variant="outlined" />}
+                      {detail.industryGroup && <Chip size="small" label={`Ngành: ${industryGroupLabel(detail.industryGroup)}`} variant="outlined" />}
+                    </Stack>
+                  )}
+                </Box>
+              </Stack>
             </Box>
-            <IconButton onClick={onClose} aria-label="Đóng">
-              <CloseIcon />
-            </IconButton>
-          </Stack>
-          <Chip
-            size="small"
-            color="warning"
-            variant="outlined"
-            label="Sàng lọc sơ bộ, không phải khuyến nghị mua/bán"
-          />
-          {detail && (
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
-              <Button variant="contained" size="small" onClick={() => onCreateThesis(detail)}>
-                Tạo hồ sơ
-              </Button>
-              <Button variant="outlined" size="small" component={Link} to={`/stocks/${detail.code}`}>
-                Xem Stock Detail
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                component={Link}
-                to={`/valuation-scenarios?stockCode=${encodeURIComponent(detail.code)}`}
-                disabled={!detail.code}
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: { xs: "flex-start", lg: "flex-end" }, flexWrap: "wrap" }}>
+              {detail && (
+                <>
+                  <Button variant="contained" size="small" onClick={() => onCreateThesis(detail)} sx={{ minHeight: 34 }}>
+                    Tạo hồ sơ
+                  </Button>
+                  <Button variant="outlined" size="small" component={Link} to={`/stocks/${detail.code}`} sx={{ minHeight: 34 }}>
+                    Xem hồ sơ cổ phiếu
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component={Link}
+                    to={`/valuation-scenarios?stockCode=${encodeURIComponent(detail.code)}`}
+                    disabled={!detail.code}
+                    sx={{ minHeight: 34 }}
+                  >
+                    Xem định giá
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    disabled={Boolean(actionLoading)}
+                    onClick={() => onAddWatchlist(detail)}
+                    sx={{ minHeight: 34 }}
+                  >
+                    {actionLoading === "watchlist" ? "Đang thêm..." : "Thêm vào watchlist"}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    disabled={Boolean(actionLoading)}
+                    onClick={() => onReject(detail)}
+                    sx={{ minHeight: 34 }}
+                  >
+                    {actionLoading === "reject" ? "Đang loại..." : "Loại bỏ"}
+                  </Button>
+                </>
+              )}
+              <IconButton
+                onClick={onClose}
+                aria-label="Đóng"
+                sx={{ position: "absolute", top: 10, right: 10 }}
               >
-                Xem định giá
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                disabled={Boolean(actionLoading)}
-                onClick={() => onAddWatchlist(detail)}
-              >
-                {actionLoading === "watchlist" ? "Đang thêm..." : "Thêm vào watchlist"}
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                size="small"
-                disabled={Boolean(actionLoading)}
-                onClick={() => onReject(detail)}
-              >
-                {actionLoading === "reject" ? "Đang loại..." : "Loại bỏ"}
-              </Button>
+                <CloseIcon />
+              </IconButton>
             </Stack>
-          )}
+          </Stack>
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: "background.default" }}>
+      <DialogContent sx={{ p: { xs: 1.25, sm: 1.5 }, bgcolor: "background.default" }}>
           {loading && <LinearProgress sx={{ mb: 2 }} />}
           {error && (
             <Alert severity="warning" sx={{ mb: 2 }}>
@@ -1056,59 +1182,40 @@ function OpportunityDetailDrawer({
           )}
 
           {detail && (
-          <Stack spacing={2}>
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "0.82fr 1.18fr" }, gap: 2 }}>
-            <Card variant="outlined" sx={{ height: "100%" }}>
-              <CardContent>
-                <Stack
-                  direction="row"
-                  spacing={0.75}
-                  sx={{
-                    flexWrap: "wrap",
-                    mb: 1.5,
-                    gap: 0.75,
-                    "& .MuiChip-root": { height: 28, maxWidth: "100%" },
-                    "& .MuiChip-label": {
-                      px: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    },
-                  }}
-                >
-                  <Chip label={decisionLabel(detail.decision, detail.decisionLabel)} color={decisionColor(detail.decision)} />
-                  <Chip
-                    label={shortResearchLabel(detail.researchReadiness)}
-                    color={readinessColor(detail.researchReadiness)}
-                  />
-                  <Chip
-                    label={executionLabel(detail.executionReadiness ?? "")}
-                    color={executionColor(detail.executionReadiness)}
-                  />
-                  {detail.exchange && <Chip label={detail.exchange} variant="outlined" />}
-                  {detail.industryGroup && <Chip label={industryGroupLabel(detail.industryGroup)} variant="outlined" />}
-                </Stack>
-                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
-                  Tổng quan điểm
-                </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
-                  <MetricLine label="Điểm tổng hợp" value={formatNumber(detail.finalScore)} />
-                  <MetricLine label="Điểm tín hiệu" value={formatNumber(detail.signalScore)} />
-                  <MetricLine label="Chất lượng" value={formatNumber(detail.qualityScore)} />
-                  <MetricLine label="Tăng trưởng" value={formatNumber(detail.growthScore)} />
-                  <MetricLine label="Định giá" value={formatNumber(detail.valuationScore)} />
-                  <MetricLine label="Loại cơ hội" value={opportunityTypeLabel(detail.opportunityType)} />
+          <Stack spacing={1.5}>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "340px minmax(0, 1fr)" }, gap: 1.25, alignItems: "start" }}>
+              <Stack spacing={1.25}>
+                <AlphaSnapshotCard detail={detail} />
+                <DetailMiniMetricStrip detail={detail} />
+              </Stack>
+              <Stack spacing={1.25}>
+                <PriceMovementCard
+                  detail={detail}
+                  prices={priceHistory}
+                  loading={priceHistoryLoading}
+                  error={priceHistoryError}
+                />
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 1.25 }}>
+                  <NarrativePanel title="Luận điểm chính" tone="success" values={primaryReasons} fallback="Chưa có luận điểm chính." />
+                  <NarrativePanel title="Rủi ro cần kiểm tra" tone="error" values={riskReasons} fallback="Chưa ghi nhận rủi ro chính." />
                 </Box>
-              </CardContent>
-            </Card>
-
-            <PriceMovementCard
-              detail={detail}
-              prices={priceHistory}
-              loading={priceHistoryLoading}
-              error={priceHistoryError}
-            />
+              </Stack>
             </Box>
+
+            <ValuationV2CompactTable detail={detail} />
+
+            <DetailDashboardMetrics detail={detail} />
+
+            <Accordion disableGutters sx={{ border: 1, borderColor: "divider", borderRadius: "12px !important", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                  Chi tiết đầy đủ Định giá V2
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                <ValuationV2Card detail={detail} />
+              </AccordionDetails>
+            </Accordion>
 
             <Card variant="outlined">
               <CardContent>
@@ -1186,6 +1293,49 @@ function OpportunityDetailDrawer({
               <Alert severity="warning" sx={{ mb: 2 }}>
                 {detail.cautionMessage}
               </Alert>
+            )}
+
+            {detail.industryProfileLabel && (
+              <Card variant="outlined" sx={{ mb: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
+                    Hồ sơ ngành: {detail.industryProfileLabel}
+                  </Typography>
+                  <Chip label={detail.industryProfileCategory ?? "GENERIC"} size="small" sx={{ mb: 1 }} />
+
+                  {detail.industryInvalidMetrics && detail.industryInvalidMetrics.length > 0 && (
+                    <Box sx={{ mb: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Chỉ số không áp dụng:</Typography>
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
+                        {detail.industryInvalidMetrics.map((m) => (
+                          <Chip key={m} label={m} size="small" color="default" variant="outlined" />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {detail.industryMissingMetrics && detail.industryMissingMetrics.length > 0 && (
+                    <Box sx={{ mb: 1 }}>
+                      <Typography variant="caption" color="warning.main">Chỉ số chuyên ngành chưa có:</Typography>
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
+                        {detail.industryMissingMetrics.map((m) => (
+                          <Chip key={m} label={m} size="small" color="warning" variant="outlined" />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {detail.industryWarnings && detail.industryWarnings.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      {detail.industryWarnings.map((w, i) => (
+                        <Alert key={i} severity="info" sx={{ mb: 0.5, py: 0 }}>
+                          <Typography variant="caption">{w}</Typography>
+                        </Alert>
+                      ))}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2 }}>
@@ -1307,8 +1457,6 @@ function OpportunityDetailDrawer({
             </Card>
             </Box>
 
-            <ValuationV2Card detail={detail} />
-
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2 }}>
             <Card variant="outlined">
               <CardContent>
@@ -1318,8 +1466,16 @@ function OpportunityDetailDrawer({
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
                   <MetricLine label="Giá" value={`${formatNumber(detail.latestPrice)}k`} />
                   <MetricLine label="Ngày giá" value={detail.latestPriceDate ?? "-"} />
-                  <MetricLine label="P/E" value={formatNumber(detail.pe)} />
-                  <MetricLine label="P/B" value={formatNumber(detail.pb)} />
+                  <MetricLine
+                    label="P/E"
+                    tooltip="P/E = giá cổ phiếu chia cho lợi nhuận mỗi cổ phiếu. P/E thấp có thể rẻ, nhưng cũng có thể là bẫy nếu lợi nhuận suy giảm."
+                    value={formatNumber(detail.pe)}
+                  />
+                  <MetricLine
+                    label="P/B"
+                    tooltip="P/B = giá cổ phiếu chia cho giá trị sổ sách mỗi cổ phiếu. Hữu ích với ngân hàng, bảo hiểm và doanh nghiệp tài sản lớn."
+                    value={formatNumber(detail.pb)}
+                  />
                   <MetricLine label="Điểm định giá" value={formatNumber(detail.valueScore)} />
                   <MetricLine label="Biên an toàn" value={formatNumber(detail.marginOfSafetyScore)} />
                 </Box>
@@ -1371,6 +1527,410 @@ function OpportunityDetailDrawer({
   );
 }
 
+function AlphaSnapshotCard({ detail }: { detail: OpportunityDetailItem }) {
+  const score = Number.isFinite(detail.finalScore ?? NaN) ? Math.max(0, Math.min(10, detail.finalScore ?? 0)) : 0;
+  const scorePercent = score * 10;
+  const healthRows = [
+    { label: "Trạng thái", value: decisionLabel(detail.decision, detail.decisionLabel), color: decisionColor(detail.decision) },
+    { label: "Mức sẵn sàng", value: readinessLabel(detail.researchReadiness ?? ""), color: readinessColor(detail.researchReadiness) },
+    { label: "Giao dịch", value: executionLabel(detail.executionReadiness ?? ""), color: executionColor(detail.executionReadiness) },
+    { label: "Độ tin cậy dữ liệu", value: confidenceLevelLabel(detail.dataConfidenceLevel), color: dataConfidenceColor(detail.dataConfidenceLevel) },
+    { label: "Thanh khoản", value: liquidityLabel(detail.liquidityLevel), color: liquidityColor(detail.liquidityLevel) },
+    { label: "Loại cơ hội", value: opportunityTypeLabel(detail.opportunityType), color: "default" as BadgeColor },
+  ];
+  const scoreBars = [
+    { label: "Chất lượng", value: detail.qualityScore, color: "success.main" },
+    { label: "Tăng trưởng", value: detail.growthScore, color: "success.main" },
+    { label: "Định giá", value: detail.valuationScore, color: "warning.main" },
+    { label: "Tín hiệu", value: detail.signalScore, color: "warning.main" },
+  ];
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
+      <CardContent sx={{ p: "12px !important" }}>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 1.2 }}>
+          <DonutSmallOutlinedIcon color="primary" fontSize="small" />
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            Alpha snapshot
+          </Typography>
+          <MetricTooltip
+            label=""
+            title="Tóm tắt nhanh điểm cơ hội, trạng thái, chất lượng dữ liệu và các lớp điểm chính. Đây là dữ liệu sàng lọc, không phải khuyến nghị đầu tư."
+          />
+        </Stack>
+
+        <Stack spacing={1.1}>
+          <Box sx={{ textAlign: "center" }}>
+            <Box sx={{ position: "relative", width: 126, height: 126, mx: "auto" }}>
+              <CircularProgress
+                variant="determinate"
+                value={100}
+                size="100%"
+                thickness={4.2}
+                sx={{ color: "#edf1f7", position: "absolute", inset: 0 }}
+              />
+              <CircularProgress
+                variant="determinate"
+                value={scorePercent}
+                size="100%"
+                thickness={4.2}
+                sx={{
+                  color: score >= 8 ? "success.main" : score >= 6.5 ? "warning.main" : "error.main",
+                  position: "absolute",
+                  inset: 0,
+                  transform: "rotate(-120deg) !important",
+                  "& .MuiCircularProgress-circle": { strokeLinecap: "round" },
+                }}
+              />
+              <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+                <Box>
+                  <Typography variant="h3" sx={{ fontSize: 42, fontWeight: 850, color: score >= 8 ? "success.main" : "text.primary", lineHeight: 1 }}>
+                    {formatNumber(detail.finalScore)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    /10
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+              Điểm tổng hợp
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.65 }}>
+            {healthRows.map((row) => (
+              <Box
+                key={row.label}
+                sx={{
+                  p: 0.75,
+                  border: 1,
+                  borderColor: "divider",
+                  borderRadius: 1,
+                  bgcolor: "#fbfdff",
+                  minWidth: 0,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.05, mb: 0.45, whiteSpace: "nowrap" }}>
+                  {row.label}
+                </Typography>
+                <Chip
+                  size="small"
+                  label={row.value}
+                  color={row.color}
+                  variant={row.color === "default" ? "outlined" : "filled"}
+                  sx={{
+                    ...compactChipSx,
+                    width: "100%",
+                    maxWidth: "100%",
+                    justifyContent: "center",
+                    "& .MuiChip-label": {
+                      ...compactChipSx["& .MuiChip-label"],
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    },
+                  }}
+                />
+              </Box>
+            ))}
+          </Box>
+
+          <Stack spacing={0.75}>
+            {scoreBars.map((item) => {
+              const value = Number.isFinite(item.value ?? NaN) ? Math.max(0, Math.min(10, item.value ?? 0)) : 0;
+              return (
+                <Box key={item.label}>
+                  <Stack direction="row" sx={{ justifyContent: "space-between", mb: 0.45 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.label}
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                      {formatNumber(item.value)}
+                    </Typography>
+                  </Stack>
+                  <Box sx={{ height: 6, borderRadius: 99, bgcolor: "#edf1f7", overflow: "hidden" }}>
+                    <Box sx={{ width: `${value * 10}%`, height: "100%", borderRadius: 99, bgcolor: item.color }} />
+                  </Box>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function NarrativePanel({
+  title,
+  values,
+  fallback,
+  tone,
+}: {
+  title: string;
+  values: string[];
+  fallback: string;
+  tone: "success" | "error";
+}) {
+  const visible = values.slice(0, 4);
+  const color = tone === "success" ? "success.main" : "error.main";
+  const bg = tone === "success" ? "rgba(18, 130, 74, 0.08)" : "rgba(216, 58, 66, 0.08)";
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
+      <CardContent sx={{ p: "12px !important" }}>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 0.85 }}>
+          <Box sx={{ width: 26, height: 26, borderRadius: "50%", display: "grid", placeItems: "center", bgcolor: bg, color }}>
+            {tone === "success" ? "✓" : "!"}
+          </Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            {title}
+          </Typography>
+        </Stack>
+        <Stack spacing={0.62}>
+          {visible.length > 0 ? (
+            visible.map((value, index) => (
+              <Stack key={`${value}-${index}`} direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+                <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: color, mt: 0.75, flexShrink: 0 }} />
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+                  {value}
+                </Typography>
+              </Stack>
+            ))
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {fallback}
+            </Typography>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DetailDashboardMetrics({ detail }: { detail: OpportunityDetailItem }) {
+  return (
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }, gap: 1.5 }}>
+      <CompactDashboardCard
+        title="Dữ liệu & ngành"
+        rows={[
+          ["Điểm dữ liệu", formatNumber(detail.dataCompletenessScore)],
+          ["Thanh khoản", liquidityLabel(detail.liquidityLevel)],
+          ["Ngành", industryGroupLabel(detail.industryGroup)],
+          ["Chi tiết ngành", industryLabel(detail.industry)],
+        ]}
+        action="Xem thêm dữ liệu ngành"
+      />
+      <CompactDashboardCard
+        title="Độ tin cậy dữ liệu"
+        highlight={detail.dataConfidenceScore ? `${Math.round(detail.dataConfidenceScore)}/100` : "Chưa có"}
+        highlightTone={dataConfidenceColor(detail.dataConfidenceLevel)}
+        badge={confidenceLevelLabel(detail.dataConfidenceLevel)}
+        rows={[
+          ["Độ tin cậy mô hình", confidenceLevelLabel(detail.conclusionConfidenceLevel)],
+          ["Cảnh báo dữ liệu", detail.dataConfidenceWarnings?.length ? `${detail.dataConfidenceWarnings.length} cảnh báo` : "Không phát hiện"],
+        ]}
+      />
+      <CompactDashboardCard
+        title="Tăng trưởng & chất lượng"
+        rows={[
+          ["Tăng trưởng doanh thu", formatPercent(detail.revenueCagr)],
+          ["Tăng trưởng lợi nhuận", formatPercent(detail.profitCagr)],
+          ["ROE", formatPercent(detail.averageRoe)],
+          ["Biên lợi nhuận ròng", formatPercent(detail.latestNetProfitMargin)],
+        ]}
+        action="Xem chi tiết"
+      />
+      <CompactDashboardCard
+        title="Tách lớp phân tích"
+        rows={[
+          ["CFO/LNST", formatNumber(detail.averageCfoToNetProfit)],
+          ["Nợ/VCSH", formatNumber(detail.averageDebtToEquity)],
+          ["Chất lượng", businessQualityLabel(detail.businessQualityLabel)],
+          ["Định giá", valuationLabelDisplay(detail.valuationLabel)],
+        ]}
+        action="Xem chi tiết"
+      />
+    </Box>
+  );
+}
+
+function DetailMiniMetricStrip({ detail }: { detail: OpportunityDetailItem }) {
+  const items = [
+    ["P/E", formatNumber(detail.pe)],
+    ["P/B", formatNumber(detail.pb)],
+    ["ROE", formatPercent(detail.averageRoe)],
+    ["LN YoY", formatPercent(detail.profitCagr)],
+  ];
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
+      <CardContent sx={{ p: "10px !important" }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 0.75 }}>
+          {items.map(([label, value]) => (
+            <Box key={label} sx={{ p: 0.8, borderRadius: 1, bgcolor: "#f7fbff", border: 1, borderColor: "divider" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1 }}>
+                {label}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 850, lineHeight: 1.25 }}>
+                {value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ValuationV2CompactTable({ detail }: { detail: OpportunityDetailItem }) {
+  const rows = [
+    {
+      layer: "So với lịch sử",
+      status: historicalLabelVi(detail.historicalValuationLabel),
+      color: historicalLabelColor(detail.historicalValuationLabel),
+      score: fmtScore(detail.historicalValuationScore),
+      pe: fmtX(detail.pe),
+      pb: fmtX(detail.pb),
+      note: detail.historicalValuationExplanation ?? "So sánh P/E, P/B hiện tại với vùng định giá lịch sử.",
+      show: detail.historicalValuationLabel != null,
+    },
+    {
+      layer: "So với ngành",
+      status: industryLabelVi(detail.industryMedianLabel),
+      color: industryLabelColor(detail.industryMedianLabel),
+      score: fmtScore(detail.industryMedianScore),
+      pe: fmtX(detail.industryMedianPe),
+      pb: fmtX(detail.industryMedianPb),
+      note: detail.industryMedianExplanation ?? "So sánh với trung vị các mã cùng ngành.",
+      show: detail.industryMedianLabel != null,
+    },
+    {
+      layer: "Sau khi xét chất lượng",
+      status: qualityAdjustedLabelVi(detail.qualityAdjustedValuationLabel),
+      color: qualityAdjustedLabelColor(detail.qualityAdjustedValuationLabel),
+      score: fmtScore(detail.qualityAdjustedValuationScore),
+      pe: detail.qualityPremiumStatus ?? "-",
+      pb: detail.valueTrapRiskLevel ?? "-",
+      note: detail.qualityAdjustedValuationExplanation ?? "Đọc định giá cùng chất lượng doanh nghiệp.",
+      show: detail.qualityAdjustedValuationLabel != null,
+    },
+    {
+      layer: "PEG & tăng trưởng",
+      status: growthLabelVi(detail.growthAlignmentLabel),
+      color: growthLabelColor(detail.growthAlignmentLabel),
+      score: fmtScore(detail.growthAlignmentScore),
+      pe: detail.pegRatio != null ? formatNumber(detail.pegRatio) : "-",
+      pb: detail.expectedPeMin != null && detail.expectedPeMax != null ? `${formatNumber(detail.expectedPeMin, 0)}-${formatNumber(detail.expectedPeMax, 0)}x` : "-",
+      note: detail.growthAdjustedExplanation ?? "Kiểm tra P/E có hợp lý với tăng trưởng hay không.",
+      show: detail.growthAlignmentLabel != null,
+    },
+  ].filter((row) => row.show);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
+      <CardContent sx={{ p: "12px !important" }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 850 }}>
+            Định giá V2
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Tách lớp định giá, không phải khuyến nghị mua/bán tự động.
+          </Typography>
+        </Stack>
+        <TableContainer component={Paper} variant="outlined" sx={{ boxShadow: "none", borderRadius: 1.5 }}>
+          <Table size="small" sx={{ "& .MuiTableCell-root": { py: 0.65, px: 1 }, "& .MuiTableCell-head": { fontWeight: 800, bgcolor: "#f7fbff" } }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Lớp phân tích</TableCell>
+                <TableCell>Đánh giá</TableCell>
+                <TableCell align="right">Điểm</TableCell>
+                <TableCell align="right">P/E / PEG</TableCell>
+                <TableCell align="right">P/B / Kỳ vọng</TableCell>
+                <TableCell>Diễn giải nhanh</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.layer}>
+                  <TableCell sx={{ fontWeight: 750 }}>{row.layer}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={row.status} color={row.color} sx={compactChipSx} />
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>{row.score}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 750 }}>{row.pe}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 750 }}>{row.pb}</TableCell>
+                  <TableCell>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 520, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {row.note}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompactDashboardCard({
+  title,
+  rows,
+  highlight,
+  highlightTone = "primary",
+  badge,
+  action,
+}: {
+  title: string;
+  rows: Array<[string, string]>;
+  highlight?: string;
+  highlightTone?: BadgeColor;
+  badge?: string;
+  action?: string;
+}) {
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
+      <CardContent sx={{ p: "14px !important" }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 850 }}>
+            {title}
+          </Typography>
+          {badge && <Chip size="small" label={badge} color={highlightTone} sx={compactChipSx} />}
+        </Stack>
+        {highlight && (
+          <Typography
+            variant="h4"
+            sx={{ mb: 1, fontSize: 28, fontWeight: 850, color: highlightTone === "default" ? "text.primary" : `${highlightTone}.main` }}
+          >
+            {highlight}
+          </Typography>
+        )}
+        <Stack spacing={0.85}>
+          {rows.map(([label, value]) => (
+            <Stack key={label} direction="row" spacing={1} sx={{ justifyContent: "space-between", borderBottom: 1, borderColor: "divider", pb: 0.65 }}>
+              <Typography variant="caption" color="text.secondary">
+                {label}
+              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 800, textAlign: "right" }}>
+                {value}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+        {action && (
+          <Typography variant="caption" color="primary.main" sx={{ display: "block", mt: 1.2, fontWeight: 800 }}>
+            {action} →
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PriceMovementCard({
   detail,
   prices,
@@ -1401,9 +1961,9 @@ function PriceMovementCard({
   const granularityLabel = priceChartGranularities.find((item) => item.value === granularity)?.label ?? granularity;
 
   return (
-    <Card variant="outlined" sx={{ height: "100%" }}>
-      <CardContent>
-        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+    <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
+      <CardContent sx={{ p: "12px !important" }}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 0.8 }}>
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               Biểu đồ giá
@@ -1423,12 +1983,12 @@ function PriceMovementCard({
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={1}
-          sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, mb: 1.5 }}
+          sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, mb: 0.9 }}
         >
           <SegmentedControl options={priceChartRanges} value={range} onChange={setRange} />
           <SegmentedControl options={priceChartGranularities} value={granularity} onChange={setGranularity} />
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.7 }}>
           Đang xem: {rangeLabel} · {granularityLabel} · {visiblePrices.length} điểm dữ liệu
         </Typography>
 
@@ -1441,21 +2001,22 @@ function PriceMovementCard({
 
         {chart ? (
           <Box>
-            <Box
-              component="svg"
-              viewBox="0 0 640 260"
-              role="img"
-              aria-label={`Biểu đồ giá ${detail.code}`}
-              sx={{
-                width: "100%",
-                height: 260,
-                display: "block",
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 1,
-                bgcolor: "background.paper",
-              }}
-            >
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 126px" }, gap: 1, alignItems: "stretch" }}>
+              <Box
+                component="svg"
+                viewBox="0 0 640 260"
+                role="img"
+                aria-label={`Biểu đồ giá ${detail.code}`}
+                sx={{
+                  width: "100%",
+                  height: { xs: 260, md: 330 },
+                  display: "block",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 1.5,
+                  bgcolor: "background.paper",
+                }}
+              >
               <rect x="0" y="0" width="640" height="260" fill="#fff" />
               {[0, 1, 2, 3].map((index) => {
                 const y = chart.top + (chart.priceHeight / 3) * index;
@@ -1499,16 +2060,32 @@ function PriceMovementCard({
                   {label.text}
                 </text>
               ))}
+              </Box>
+              <Box
+                sx={{
+                  display: { xs: "none", xl: "grid" },
+                  gap: 0.55,
+                  p: 0.8,
+                  border: 1,
+                  borderColor: "divider",
+                  borderRadius: 1.5,
+                  bgcolor: "#fbfdff",
+                  alignContent: "start",
+                }}
+              >
+                <CompactMetric label="Giá hiện tại" value={`${formatNumber(detail.latestPrice)}k`} />
+                <CompactMetric label="Thay đổi 52W" value={formatPercent(detail.drawdownFrom52wHigh)} />
+                <CompactMetric label="Cao nhất" value={`${formatNumber(chart.maxClose)}k`} />
+                <CompactMetric label="Ngày cao nhất" value={formatFullDate(chart.highDate)} />
+                <CompactMetric label="Thấp nhất" value={`${formatNumber(chart.minClose)}k`} />
+                <CompactMetric label="Ngày thấp nhất" value={formatFullDate(chart.lowDate)} />
+              </Box>
             </Box>
-            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1, mt: 1.5 }}>
+            <Box sx={{ display: { xs: "grid", xl: "none" }, gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(6, minmax(0, 1fr))" }, gap: 0.75, mt: 0.9 }}>
               <CompactMetric label="Đầu kỳ" value={`${formatNumber(chart.firstClose)}k`} />
               <CompactMetric label="Cuối kỳ" value={`${formatNumber(chart.lastClose)}k`} />
               <CompactMetric label="Cao nhất" value={`${formatNumber(chart.maxClose)}k`} />
               <CompactMetric label="Thấp nhất" value={`${formatNumber(chart.minClose)}k`} />
-            </Box>
-            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1, mt: 1 }}>
-              <CompactMetric label="Ngày đầu kỳ" value={formatFullDate(chart.firstDate)} />
-              <CompactMetric label="Ngày cuối kỳ" value={formatFullDate(chart.lastDate)} />
               <CompactMetric label="Ngày cao nhất" value={formatFullDate(chart.highDate)} />
               <CompactMetric label="Ngày thấp nhất" value={formatFullDate(chart.lowDate)} />
             </Box>
@@ -1519,7 +2096,7 @@ function PriceMovementCard({
           </Alert>
         )}
 
-        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1, mt: 1.5 }}>
+        <Box sx={{ display: { xs: "grid", md: "none" }, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1, mt: 1 }}>
           <CompactMetric label="Giá gần nhất" value={`${formatNumber(detail.latestPrice)}k`} />
           <CompactMetric label="Ngày giá" value={detail.latestPriceDate ?? "-"} />
           <CompactMetric label="Cách đỉnh 52W" value={formatPercent(detail.drawdownFrom52wHigh)} />
@@ -1736,19 +2313,33 @@ function MetricCard({
   icon: ReactNode;
   tone?: MetricTone;
 }) {
-  const toneStyles: Record<MetricTone, { color: string; background: string }> = {
-    primary: { color: "primary.main", background: "rgba(37, 99, 235, 0.09)" },
-    success: { color: "success.main", background: "rgba(22, 163, 74, 0.09)" },
-    warning: { color: "warning.main", background: "rgba(234, 88, 12, 0.09)" },
-    error: { color: "error.main", background: "rgba(220, 38, 38, 0.08)" },
+  const toneStyles: Record<MetricTone, { color: string; background: string; shadow: string }> = {
+    primary: { color: "primary.main", background: "rgba(37, 99, 235, 0.09)", shadow: "rgba(37, 99, 235, 0.12)" },
+    success: { color: "success.main", background: "rgba(22, 163, 74, 0.09)", shadow: "rgba(22, 163, 74, 0.12)" },
+    warning: { color: "warning.main", background: "rgba(234, 88, 12, 0.09)", shadow: "rgba(234, 88, 12, 0.12)" },
+    error: { color: "error.main", background: "rgba(220, 38, 38, 0.08)", shadow: "rgba(220, 38, 38, 0.12)" },
   };
 
   return (
-    <Card sx={{ minWidth: 0 }}>
-      <CardContent sx={{ p: "16px !important" }}>
-        <Box sx={{ width: 40, height: 40, borderRadius: 2.5, display: "grid", placeItems: "center", color: toneStyles[tone].color, bgcolor: toneStyles[tone].background, mb: 1 }}>
-          {icon}
-        </Box>
+    <Card sx={{ minWidth: 0, borderRadius: 3, overflow: "hidden" }}>
+      <CardContent sx={{ p: "14px !important", minHeight: 118 }}>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+          <Box
+            sx={{
+              width: 38,
+              height: 38,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              color: toneStyles[tone].color,
+              bgcolor: toneStyles[tone].background,
+              boxShadow: `0 10px 22px ${toneStyles[tone].shadow}`,
+            }}
+          >
+            {icon}
+          </Box>
+          <TinySparkline tone={tone} />
+        </Stack>
         <Typography variant="caption" color="text.secondary">
           {label}
         </Typography>
@@ -1760,8 +2351,39 @@ function MetricCard({
             {helper}
           </Typography>
         )}
+        <Box sx={{ mt: 1.1, height: 4, borderRadius: 99, bgcolor: "#e9eef6", overflow: "hidden" }}>
+          <Box
+            sx={{
+              width: tone === "error" ? "62%" : tone === "success" ? "76%" : tone === "warning" ? "54%" : "68%",
+              height: "100%",
+              borderRadius: 99,
+              bgcolor: toneStyles[tone].color,
+            }}
+          />
+        </Box>
       </CardContent>
     </Card>
+  );
+}
+
+function TinySparkline({ tone }: { tone: MetricTone }) {
+  const stroke: Record<MetricTone, string> = {
+    primary: "#2563eb",
+    success: "#16a34a",
+    warning: "#f59e0b",
+    error: "#ef4444",
+  };
+
+  return (
+    <Box
+      component="svg"
+      viewBox="0 0 74 30"
+      sx={{ width: 74, height: 30, color: stroke[tone], opacity: 0.82, flexShrink: 0 }}
+      aria-hidden="true"
+    >
+      <path d="M2 23 C10 19 12 10 20 14 S31 24 38 15 48 4 56 10 63 20 72 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M2 29 L2 23 C10 19 12 10 20 14 S31 24 38 15 48 4 56 10 63 20 72 8 L72 29 Z" fill="currentColor" opacity="0.08" />
+    </Box>
   );
 }
 
@@ -1786,11 +2408,11 @@ function formatFullDate(value?: string | null) {
   });
 }
 
-function MetricLine({ label, value }: { label: string; value: string }) {
+function MetricLine({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
-        {label}
+        {tooltip ? <MetricTooltip label={label} title={tooltip} /> : label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 700 }}>
         {value}
@@ -1845,11 +2467,11 @@ function SegmentedControl<T extends string>({
 
 function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
-    <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2 }}>
+    <Box sx={{ px: 0.8, py: 0.55, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.05, fontSize: "0.68rem" }}>
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.35, wordBreak: "break-word" }}>
+      <Typography variant="body2" sx={{ fontWeight: 850, lineHeight: 1.15, wordBreak: "break-word", fontSize: "0.82rem" }}>
         {value}
       </Typography>
     </Box>
@@ -2666,12 +3288,12 @@ function ValuationV2Card({ detail }: { detail: OpportunityDetailItem }) {
             explanation={detail.historicalValuationExplanation}
             warnings={detail.historicalValuationWarnings}
           >
-            <MetricLine label="P/E hiện tại" value={fmtX(detail.pe)} />
-            <MetricLine label="P/E median 3 năm" value={fmtX(detail.historicalMedianPe3y)} />
-            <MetricLine label="P/B hiện tại" value={fmtX(detail.pb)} />
-            <MetricLine label="P/B median 3 năm" value={fmtX(detail.historicalMedianPb3y)} />
-            <MetricLine label="P/E vs lịch sử" value={fmtDelta(detail.peVsHistoryPercent)} />
-            <MetricLine label="P/B vs lịch sử" value={fmtDelta(detail.pbVsHistoryPercent)} />
+            <MetricLine label="P/E hiện tại" tooltip="Định giá P/E tại giá gần nhất." value={fmtX(detail.pe)} />
+            <MetricLine label="P/E median 3 năm" tooltip="Mức P/E trung vị trong 3 năm, dùng làm mốc so sánh lịch sử." value={fmtX(detail.historicalMedianPe3y)} />
+            <MetricLine label="P/B hiện tại" tooltip="Định giá P/B tại giá gần nhất." value={fmtX(detail.pb)} />
+            <MetricLine label="P/B median 3 năm" tooltip="Mức P/B trung vị trong 3 năm, dùng làm mốc so sánh lịch sử." value={fmtX(detail.historicalMedianPb3y)} />
+            <MetricLine label="P/E vs lịch sử" tooltip="Chênh lệch P/E hiện tại so với median lịch sử. Âm nghĩa là thấp hơn lịch sử." value={fmtDelta(detail.peVsHistoryPercent)} />
+            <MetricLine label="P/B vs lịch sử" tooltip="Chênh lệch P/B hiện tại so với median lịch sử. Âm nghĩa là thấp hơn lịch sử." value={fmtDelta(detail.pbVsHistoryPercent)} />
           </V2Section>
         )}
 
@@ -2686,11 +3308,11 @@ function ValuationV2Card({ detail }: { detail: OpportunityDetailItem }) {
             explanation={detail.industryMedianExplanation}
             warnings={detail.industryMedianWarnings}
           >
-            <MetricLine label="P/E median ngành" value={fmtX(detail.industryMedianPe)} />
-            <MetricLine label="P/B median ngành" value={fmtX(detail.industryMedianPb)} />
-            <MetricLine label="P/E vs ngành" value={fmtDelta(detail.peVsIndustryPercent)} />
-            <MetricLine label="P/B vs ngành" value={fmtDelta(detail.pbVsIndustryPercent)} />
-            <MetricLine label="Mẫu ngành" value={detail.industrySampleSize != null ? `${detail.industrySampleSize} mã` : "-"} />
+            <MetricLine label="P/E median ngành" tooltip="P/E trung vị của các mã cùng ngành trong mẫu hiện có." value={fmtX(detail.industryMedianPe)} />
+            <MetricLine label="P/B median ngành" tooltip="P/B trung vị của các mã cùng ngành trong mẫu hiện có." value={fmtX(detail.industryMedianPb)} />
+            <MetricLine label="P/E vs ngành" tooltip="Chênh lệch P/E của mã so với median ngành. Âm nghĩa là rẻ hơn ngành theo P/E." value={fmtDelta(detail.peVsIndustryPercent)} />
+            <MetricLine label="P/B vs ngành" tooltip="Chênh lệch P/B của mã so với median ngành. Âm nghĩa là rẻ hơn ngành theo P/B." value={fmtDelta(detail.pbVsIndustryPercent)} />
+            <MetricLine label="Mẫu ngành" tooltip="Số mã cùng ngành được dùng để tính median ngành. Mẫu thấp thì kết luận kém chắc." value={detail.industrySampleSize != null ? `${detail.industrySampleSize} mã` : "-"} />
           </V2Section>
         )}
 
@@ -2705,10 +3327,10 @@ function ValuationV2Card({ detail }: { detail: OpportunityDetailItem }) {
             explanation={detail.qualityAdjustedValuationExplanation}
             warnings={detail.qualityAdjustedValuationWarnings}
           >
-            <MetricLine label="Premium status" value={detail.qualityPremiumStatus ?? "-"} />
-            <MetricLine label="Value trap risk" value={detail.valueTrapRiskLevel ?? "-"} />
-            <MetricLine label="Điểm justify premium" value={formatNumber(detail.premiumJustificationScore)} />
-            <MetricLine label="Điểm rủi ro discount" value={formatNumber(detail.discountQualityRiskScore)} />
+            <MetricLine label="Trạng thái premium" tooltip="Cho biết chất lượng doanh nghiệp có đủ tốt để chấp nhận mức định giá cao hơn bình thường hay không." value={detail.qualityPremiumStatus ?? "-"} />
+            <MetricLine label="Rủi ro value trap" tooltip="Rủi ro cổ phiếu nhìn rẻ nhưng chất lượng kinh doanh hoặc triển vọng không đủ tốt." value={detail.valueTrapRiskLevel ?? "-"} />
+            <MetricLine label="Điểm biện minh premium" tooltip="Điểm đánh giá liệu chất lượng/tăng trưởng có đủ để biện minh cho định giá cao hơn hay không." value={formatNumber(detail.premiumJustificationScore)} />
+            <MetricLine label="Điểm rủi ro chiết khấu" tooltip="Điểm phản ánh rủi ro chất lượng khiến cổ phiếu đáng bị chiết khấu." value={formatNumber(detail.discountQualityRiskScore)} />
           </V2Section>
         )}
 
@@ -2723,7 +3345,11 @@ function ValuationV2Card({ detail }: { detail: OpportunityDetailItem }) {
             explanation={detail.growthAdjustedExplanation}
             warnings={detail.growthAdjustedWarnings}
           >
-            <MetricLine label="PEG" value={detail.pegRatio != null ? formatNumber(detail.pegRatio) : "Không tính được"} />
+            <MetricLine
+              label="PEG"
+              tooltip="PEG = P/E chia cho tốc độ tăng trưởng lợi nhuận. PEG thấp có thể hấp dẫn nếu tăng trưởng bền vững."
+              value={detail.pegRatio != null ? formatNumber(detail.pegRatio) : "Không tính được"}
+            />
             <MetricLine
               label="P/E kỳ vọng"
               value={detail.expectedPeMin != null && detail.expectedPeMax != null

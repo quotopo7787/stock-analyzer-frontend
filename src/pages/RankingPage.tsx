@@ -31,6 +31,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
 import { useNavigate } from "react-router-dom";
 import { rankingApi } from "../api/rankingApi";
+import MetricTooltip from "../components/MetricTooltip";
 import type { RankingItem, RankingMeta, RankingSnapshotStatus } from "../types/ranking";
 
 const currentYear = new Date().getFullYear();
@@ -376,10 +377,30 @@ export default function RankingPage() {
                   <TableCell align="right">Số năm</TableCell>
                   <TableCell align="right">Doanh thu</TableCell>
                   <TableCell align="right">Lợi nhuận</TableCell>
-                  <TableCell align="right">ROE TB</TableCell>
-                  <TableCell align="right">Nợ/VCSH TB</TableCell>
-                  <TableCell align="right">CFO/LNST TB</TableCell>
-                  <TableCell align="center">Chất lượng</TableCell>
+                  <TableCell align="right">
+                    <MetricTooltip
+                      label="ROE TB"
+                      title="ROE trung bình = lợi nhuận trên vốn chủ sở hữu. Chỉ số cao và ổn định thường phản ánh hiệu quả sử dụng vốn tốt."
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <MetricTooltip
+                      label="Nợ/VCSH TB"
+                      title="Tỷ lệ nợ trên vốn chủ sở hữu trung bình. Cao nghĩa là doanh nghiệp dùng đòn bẩy nhiều hơn."
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <MetricTooltip
+                      label="CFO/LNST TB"
+                      title="Dòng tiền hoạt động so với lợi nhuận sau thuế. Cao hơn thường cho thấy lợi nhuận có chất lượng tiền mặt tốt hơn."
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <MetricTooltip
+                      label="Chất lượng"
+                      title="Nhãn tóm tắt chất lượng dựa trên tăng trưởng, ROE, dòng tiền và sức khỏe bảng cân đối."
+                    />
+                  </TableCell>
                   <TableCell>Ghi chú</TableCell>
                   <TableCell align="center">Chi tiết</TableCell>
                 </TableRow>
