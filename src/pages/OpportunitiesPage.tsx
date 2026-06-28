@@ -1060,6 +1060,12 @@ function OpportunityTable({
                 title="Khả năng mua/bán cổ phiếu theo giá hợp lý. Thanh khoản thấp làm tăng rủi ro trượt giá và khó thoát vị thế."
               />
             </TableCell>
+            <TableCell>
+              <MetricTooltip
+                label="Dòng ngành"
+                title="Tín hiệu sector rotation: dòng tiền vào/ra ngành dựa trên hiệu suất giá và khối lượng tương đối. Đây là tín hiệu mô phỏng."
+              />
+            </TableCell>
             <TableCell align="right" sx={{ ...stickyActionSx, ...stickyHeadSx }}>
               Hành động
             </TableCell>
@@ -1137,6 +1143,13 @@ function OpportunityTable({
                 <Tooltip title={item.liquidityWarning ? "Thanh khoản thấp, cần thận trọng khi mở hoặc thoát vị thế." : "Mức thanh khoản giao dịch."}>
                   <Chip size="small" label={liquidityLabel(item.liquidityLevel)} color={liquidityColor(item.liquidityLevel)} />
                 </Tooltip>
+              </TableCell>
+              <TableCell sx={{ minWidth: 80 }}>
+                {item.sectorMomentum ? (
+                  <Tooltip title={`Sector rotation: ${item.sectorMomentum}${item.sectorRotationAdjustment != null ? ` (${item.sectorRotationAdjustment >= 0 ? "+" : ""}${item.sectorRotationAdjustment})` : ""}`}>
+                    <Chip size="small" label={sectorMomentumLabel(item.sectorMomentum)} color={sectorMomentumColor(item.sectorMomentum)} variant="outlined" />
+                  </Tooltip>
+                ) : <Typography variant="caption" color="text.disabled">—</Typography>}
               </TableCell>
               <TableCell align="right" sx={stickyActionSx}>
                 <Tooltip title="Xem chi tiết">
@@ -3088,6 +3101,28 @@ function liquidityLabel(code?: string | null) {
     UNKNOWN: "Thiếu DL",
   };
   return code ? labels[code] ?? code : "Thiếu DL";
+}
+
+function sectorMomentumLabel(code?: string | null): string {
+  const labels: Record<string, string> = {
+    STRONG_INFLOW: "Dòng vào mạnh",
+    INFLOW: "Dòng vào",
+    NEUTRAL: "Trung lập",
+    OUTFLOW: "Dòng ra",
+    STRONG_OUTFLOW: "Dòng ra mạnh",
+  };
+  return code ? labels[code] ?? code : "—";
+}
+
+function sectorMomentumColor(code?: string | null): "success" | "warning" | "error" | "default" {
+  const colors: Record<string, "success" | "warning" | "error" | "default"> = {
+    STRONG_INFLOW: "success",
+    INFLOW: "success",
+    NEUTRAL: "default",
+    OUTFLOW: "warning",
+    STRONG_OUTFLOW: "error",
+  };
+  return code ? colors[code] ?? "default" : "default";
 }
 
 function industryGroupLabel(code?: string | null) {

@@ -6,7 +6,7 @@ import {
 import {
   AccountBalanceWalletOutlined, ArrowForward, AssignmentOutlined, BalanceOutlined, BlockOutlined,
   CheckCircleOutlined, DataUsageOutlined, DescriptionOutlined, DonutSmallOutlined,
-  GroupsOutlined, HistoryToggleOffOutlined, NotificationsNoneOutlined, PercentOutlined, Refresh,
+  GroupsOutlined, HistoryToggleOffOutlined, NotificationsActiveOutlined, NotificationsNoneOutlined, PercentOutlined, Refresh,
   ShowChartOutlined, StorageOutlined, TrendingUpOutlined, WarningAmberOutlined,
 } from "@mui/icons-material";
 import MarketContextCard from "../components/MarketContextCard";
@@ -14,6 +14,8 @@ import MetricTooltip from "../components/MetricTooltip";
 import { portfolioApi } from "../api/portfolioApi";
 import { decisionPlanApi } from "../api/decisionPlanApi";
 import { dataGapApi } from "../api/dataGapApi";
+import { notificationApi } from "../api/notificationApi";
+import type { Notification as NotifItem, ScoreMovement } from "../types/notifications";
 import type { PortfolioPosition, PortfolioSummary } from "../types/portfolio";
 import type { DecisionPlanListItem } from "../types/decisionPlans";
 import type { DataGapReason, OpportunityDataGapPage } from "../types/dataGaps";
@@ -37,6 +39,8 @@ export default function DashboardPage() {
   const [gaps, setGaps] = useState<OpportunityDataGapPage | null>(null);
   const [errors, setErrors] = useState<DashboardErrors>({});
   const [loading, setLoading] = useState(false);
+  const [recentNotifs, setRecentNotifs] = useState<NotifItem[]>([]);
+  const [scoreMovements, setScoreMovements] = useState<ScoreMovement[]>([]);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -47,6 +51,8 @@ export default function DashboardPage() {
       decisionPlanApi.listAllActive(),
       dataGapApi.getGaps({ page: 0, size: 20 }),
     ]);
+    notificationApi.getRecent(5).then(setRecentNotifs).catch(() => {});
+    notificationApi.getMovements(0.5).then(setScoreMovements).catch(() => {});
 
     const nextErrors: DashboardErrors = {};
     if (summaryResult.status === "fulfilled") setSummary(summaryResult.value);
@@ -95,6 +101,44 @@ export default function DashboardPage() {
     </Box>
 
     <MarketContextCard />
+
+    <Box sx={sectionGridSx}>
+      <Section title="Thông báo gần đây" icon={<NotificationsActiveOutlined />}>
+        {recentNotifs.length > 0 ? (
+          <Stack spacing={1}>
+            {recentNotifs.map((n, i) => (
+              <Card variant="outlined" key={`${n.timestamp}-${i}`} sx={{ boxShadow: "none" }}>
+                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
+                    <Chip size="small" label={n.type} color={n.type === "OPPORTUNITY_SIGNAL" ? "success" : n.type === "SCORE_CHANGE" ? "warning" : "info"} variant="outlined" />
+                    {n.stockCode && <Chip size="small" label={n.stockCode} />}
+                  </Stack>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{n.title}</Typography>
+                  <Typography variant="caption" color="text.secondary">{n.message}</Typography>
+                </CardContent>
+              </Card>
+            ))}
+            <Button size="small" endIcon={<ArrowForward />} onClick={() => navigate("/alert-center")}>Xem tất cả</Button>
+          </Stack>
+        ) : <Empty text="Chưa có thông báo." detail="Thông báo sẽ xuất hiện khi hệ thống phát hiện tín hiệu mới." icon={<NotificationsNoneOutlined />} />}
+      </Section>
+
+      <Section title="Biến động Score gần đây" icon={<TrendingUpOutlined />}>
+        {scoreMovements.length > 0 ? (
+          <Stack spacing={1}>
+            {scoreMovements.slice(0, 5).map((m) => (
+              <Stack key={m.stockCode} direction="row" spacing={1.5} sx={{ alignItems: "center", py: 0.5, borderBottom: 1, borderColor: "divider" }}>
+                <Typography sx={{ fontWeight: 700, minWidth: 50 }}>{m.stockCode}</Typography>
+                <Chip size="small" label={`${m.scoreChange >= 0 ? "+" : ""}${m.scoreChange.toFixed(2)}`} color={m.direction === "UP" ? "success" : "error"} variant="outlined" />
+                <Typography variant="caption" color="text.secondary">{m.previousScore.toFixed(1)} → {m.currentScore.toFixed(1)}</Typography>
+                <Typography variant="caption" color="text.secondary">{m.previousDecision} → {m.currentDecision}</Typography>
+              </Stack>
+            ))}
+            <Button size="small" endIcon={<ArrowForward />} onClick={() => navigate("/alert-center")}>Xem chi tiết</Button>
+          </Stack>
+        ) : <Empty text="Chưa có biến động đáng kể." detail="Biến động score sẽ xuất hiện khi snapshot tích lũy qua nhiều ngày." icon={<ShowChartOutlined />} />}
+      </Section>
+    </Box>
 
     <Box sx={sectionGridSx}>
       <Section title="Cảnh báo danh mục" icon={<NotificationsNoneOutlined />} error={errors.portfolio}>

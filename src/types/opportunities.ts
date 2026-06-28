@@ -196,6 +196,8 @@ export interface OpportunitySummaryItem {
   priceChange1Y?: number | null;
   drawdownFrom52wHigh?: number | null;
   priceTrendLevel?: PriceTrendLevel | string | null;
+  sectorMomentum?: string | null;
+  sectorRotationAdjustment?: number | null;
   sectorSpecific?: boolean | null;
   notApplicableMetrics?: string[];
   missingRequiredMetrics?: string[];

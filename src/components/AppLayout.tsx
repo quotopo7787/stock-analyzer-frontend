@@ -1,7 +1,7 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import {
   AppBar, Avatar, Badge, Box, Collapse, Drawer, IconButton, List, ListItemButton, ListItemIcon,
-  ListItemText, Paper, Stack, Toolbar, Typography, Chip,
+  ListItemText, Menu, MenuItem, Paper, Stack, Toolbar, Typography, Chip,
 } from "@mui/material";
 import {
   AccountBalanceWalletOutlined, CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
@@ -9,7 +9,7 @@ import {
   StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined, SavingsOutlined, ReceiptLongOutlined, PublicOutlined,
 } from "@mui/icons-material";
 import type { ReactNode } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 const drawerWidth = 252;
 const collapsedDrawerWidth = 86;
@@ -80,9 +80,44 @@ const navSections: NavSection[] = [
 ];
 const navItems = navSections.flatMap((section) => hasSectionItems(section) ? section.items : [section]);
 
+interface NotifItem {
+  type: string;
+  title: string;
+  message: string;
+  stockCode: string | null;
+  score: number | null;
+  timestamp: string;
+}
+
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [notifications, setNotifications] = useState<NotifItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
+  const esRef = useRef<EventSource | null>(null);
+
+  useEffect(() => {
+    const es = new EventSource("/api/notifications/subscribe");
+    esRef.current = es;
+    const handler = (e: MessageEvent) => {
+      try {
+        const n: NotifItem = JSON.parse(e.data);
+        setNotifications((prev) => [n, ...prev].slice(0, 50));
+        setUnreadCount((c) => c + 1);
+      } catch { /* ignore */ }
+    };
+    es.onmessage = handler;
+    for (const t of ["SCORE_CHANGE", "WATCHLIST_ALERT", "OPPORTUNITY_SIGNAL"]) {
+      es.addEventListener(t, handler as EventListener);
+    }
+    fetch("/api/notifications/recent?limit=10")
+      .then((r) => r.json())
+      .then((data: NotifItem[]) => { if (Array.isArray(data)) setNotifications(data); })
+      .catch(() => {});
+    return () => es.close();
+  }, []);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navSections.filter(hasSectionItems).map((section) => [section.label, false])),
   );
@@ -151,7 +186,43 @@ export default function AppLayout() {
             <Typography variant="caption" sx={{ px: 0.8, py: 0.2, borderRadius: 1, bgcolor: "#f2f6fb", border: 1, borderColor: "divider" }}>Ctrl K</Typography>
           </Box>
           <IconButton aria-label="Giao diện sáng" sx={{ bgcolor: "white", border: 1, borderColor: "divider" }}><LightModeOutlined /></IconButton>
-          <IconButton aria-label="Thông báo" sx={{ bgcolor: "white", border: 1, borderColor: "divider" }}><Badge badgeContent={3} color="primary"><NotificationsNoneOutlined /></Badge></IconButton>
+          <IconButton
+            aria-label="Thông báo"
+            sx={{ bgcolor: "white", border: 1, borderColor: "divider" }}
+            onClick={(e) => { setNotifAnchor(e.currentTarget); setUnreadCount(0); }}
+          >
+            <Badge badgeContent={unreadCount} color="primary">
+              {unreadCount > 0 ? <NotificationsActiveOutlined /> : <NotificationsNoneOutlined />}
+            </Badge>
+          </IconButton>
+          <Menu
+            anchorEl={notifAnchor}
+            open={Boolean(notifAnchor)}
+            onClose={() => setNotifAnchor(null)}
+            slotProps={{ paper: { sx: { width: 380, maxHeight: 420 } } }}
+          >
+            <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Thông báo gần đây</Typography>
+            </Box>
+            {notifications.length === 0 && (
+              <MenuItem disabled><Typography variant="body2" color="text.secondary">Chưa có thông báo</Typography></MenuItem>
+            )}
+            {notifications.slice(0, 8).map((n, i) => (
+              <MenuItem key={`${n.timestamp}-${i}`} onClick={() => { setNotifAnchor(null); navigate("/alert-center"); }} sx={{ whiteSpace: "normal", py: 1 }}>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{n.title}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {n.message}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+            {notifications.length > 0 && (
+              <MenuItem onClick={() => { setNotifAnchor(null); navigate("/alert-center"); }} sx={{ justifyContent: "center", borderTop: 1, borderColor: "divider" }}>
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>Xem tất cả</Typography>
+              </MenuItem>
+            )}
+          </Menu>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", ml: 1, pl: 1, borderLeft: 1, borderColor: "divider" }}>
             <Avatar sx={{ width: 36, height: 36, bgcolor: "#e9f2ff", color: "primary.dark", fontSize: 14, fontWeight: 750 }}>AD</Avatar>
             <ExpandMore fontSize="small" color="action" />

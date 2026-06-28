@@ -8,13 +8,23 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  LinearProgress,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
+import { TrendingUpOutlined, TrendingDownOutlined } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import { snapshotApi } from "../api/snapshotApi";
+import { notificationApi } from "../api/notificationApi";
+import type { ScoreTimeline } from "../types/notifications";
 import type { CompanySnapshotResponse } from "../types/snapshot";
 
 const AUTO_LOAD_DEDUP_MS = 1200;
@@ -230,9 +240,91 @@ export default function StockDetailPage() {
               {snapshot.note}
             </Alert>
           )}
+
+          <ScoreHistorySection stockCode={stockCode} />
         </Stack>
       )}
     </Box>
+  );
+}
+
+function ScoreHistorySection({ stockCode }: { stockCode: string }) {
+  const [timeline, setTimeline] = useState<ScoreTimeline | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!stockCode.trim()) return;
+    setLoading(true);
+    notificationApi.getScoreHistory(stockCode.trim().toUpperCase(), 90)
+      .then(setTimeline)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [stockCode]);
+
+  const trendMap: Record<string, { color: "success" | "error" | "warning" | "default"; label: string }> = {
+    IMPROVING: { color: "success", label: "Tăng" },
+    DECLINING: { color: "error", label: "Giảm" },
+    STABLE: { color: "default", label: "Ổn định" },
+    INSUFFICIENT_DATA: { color: "warning", label: "Chưa đủ dữ liệu" },
+  };
+
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="h6" gutterBottom>Lịch sử Score (90 ngày)</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Theo dõi biến động điểm sàng lọc qua các snapshot — tín hiệu mô phỏng, không phải khuyến nghị đầu tư.
+        </Typography>
+        {loading && <LinearProgress sx={{ mb: 1 }} />}
+        {timeline && timeline.dataPoints.length > 0 ? (
+          <>
+            <Stack direction="row" spacing={2} sx={{ mb: 2, alignItems: "center" }}>
+              <Chip size="small" label={trendMap[timeline.trend]?.label ?? timeline.trend} color={trendMap[timeline.trend]?.color ?? "default"} />
+              {timeline.latestScore != null && (
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Score: {timeline.latestScore.toFixed(2)}</Typography>
+              )}
+              {timeline.scoreChange != null && (
+                <Chip
+                  size="small"
+                  icon={timeline.scoreChange >= 0 ? <TrendingUpOutlined /> : <TrendingDownOutlined />}
+                  label={`${timeline.scoreChange >= 0 ? "+" : ""}${timeline.scoreChange.toFixed(2)}`}
+                  color={timeline.scoreChange >= 0 ? "success" : "error"}
+                  variant="outlined"
+                />
+              )}
+            </Stack>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Ngày</TableCell>
+                    <TableCell align="right">Final Score</TableCell>
+                    <TableCell align="right">Quality</TableCell>
+                    <TableCell align="right">Growth</TableCell>
+                    <TableCell align="right">Valuation</TableCell>
+                    <TableCell>Decision</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {timeline.dataPoints.map((p) => (
+                    <TableRow key={p.date} hover>
+                      <TableCell>{p.date}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{p.finalScore.toFixed(2)}</TableCell>
+                      <TableCell align="right">{p.qualityScore?.toFixed(2) ?? "—"}</TableCell>
+                      <TableCell align="right">{p.growthScore?.toFixed(2) ?? "—"}</TableCell>
+                      <TableCell align="right">{p.valuationScore?.toFixed(2) ?? "—"}</TableCell>
+                      <TableCell>{p.decision}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        ) : !loading ? (
+          <Alert severity="info">Chưa có dữ liệu lịch sử score cho mã này. Dữ liệu sẽ tích lũy tự động qua các snapshot hàng ngày.</Alert>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
