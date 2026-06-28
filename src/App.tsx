@@ -22,6 +22,7 @@ import PaperTradingPage from "./pages/PaperTradingPage";
 import BacktestPage from "./pages/BacktestPage";
 import RealtimePricePage from "./pages/RealtimePricePage";
 import MacroContextAdminPage from "./pages/MacroContextAdminPage";
+import AlertCenterPage from "./pages/AlertCenterPage";
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
           <Route path="backtest" element={<BacktestPage />} />
           <Route path="realtime" element={<RealtimePricePage />} />
           <Route path="macro-context" element={<MacroContextAdminPage />} />
+          <Route path="alert-center" element={<AlertCenterPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
