@@ -6,7 +6,7 @@ import {
 import {
   AccountBalanceWalletOutlined, CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
   NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ScienceOutlined, ShowChart, SignalCellularAlt,
-  StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined,
+  StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined, SavingsOutlined, ReceiptLongOutlined,
 } from "@mui/icons-material";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
@@ -25,6 +25,8 @@ const navItems = [
   { label: "Định giá", to: "/valuation-scenarios", icon: <CalculateOutlined /> },
   { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
   { label: "Phân bổ vốn", to: "/portfolio-allocation", icon: <AccountBalanceWalletOutlined /> },
+  { label: "Sổ tiền mặt", to: "/portfolio-cash-ledger", icon: <SavingsOutlined /> },
+  { label: "Sổ giao dịch", to: "/portfolio-transactions", icon: <ReceiptLongOutlined /> },
   { label: "Paper Trading", to: "/paper-trading", icon: <ScienceOutlined /> },
   { label: "Backtest tín hiệu", to: "/backtest", icon: <ScienceOutlined /> },
   { label: "Bảng giá realtime", to: "/realtime", icon: <ShowChart /> },

@@ -15,6 +15,8 @@ import AdminDataGapsPage from "./pages/AdminDataGapsPage";
 import DecisionPlansPage from "./pages/DecisionPlansPage";
 import PortfolioPage from "./pages/PortfolioPage";
 import PortfolioAllocationPage from "./pages/PortfolioAllocationPage";
+import PortfolioCashLedgerPage from "./pages/PortfolioCashLedgerPage";
+import PortfolioTransactionLedgerPage from "./pages/PortfolioTransactionLedgerPage";
 import ValuationScenariosPage from "./pages/ValuationScenariosPage";
 import PaperTradingPage from "./pages/PaperTradingPage";
 import BacktestPage from "./pages/BacktestPage";
@@ -42,6 +44,8 @@ function App() {
           <Route path="valuation-scenarios" element={<ValuationScenariosPage />} />
           <Route path="portfolio" element={<PortfolioPage />} />
           <Route path="portfolio-allocation" element={<PortfolioAllocationPage />} />
+          <Route path="portfolio-cash-ledger" element={<PortfolioCashLedgerPage />} />
+          <Route path="portfolio-transactions" element={<PortfolioTransactionLedgerPage />} />
           <Route path="paper-trading" element={<PaperTradingPage />} />
           <Route path="backtest" element={<BacktestPage />} />
           <Route path="realtime" element={<RealtimePricePage />} />

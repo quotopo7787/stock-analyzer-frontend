@@ -1,6 +1,7 @@
 export type PortfolioAllocationRiskLevel = "LOW" | "MEDIUM" | "HIGH";
 export type PortfolioAllocationStatus = "OK" | "OVERWEIGHT_STOCK" | "OVERWEIGHT_INDUSTRY" | "DATA_MISSING";
 export type PortfolioAllocationPriority = "HIGH" | "MEDIUM" | "LOW";
+export type PortfolioAllocationCashSource = "MANUAL_OVERRIDE" | "CASH_LEDGER" | "CASH_LEDGER_EMPTY";
 
 export interface PortfolioAllocationReviewRequest {
   totalCapital?: number;
@@ -14,6 +15,10 @@ export interface PortfolioAllocationReviewRequest {
 export interface PortfolioAllocationSummary {
   totalCapital: number;
   cashAmount: number;
+  cashSource?: PortfolioAllocationCashSource;
+  cashLedgerBalance?: number | null;
+  manualCashOverride?: boolean;
+  cashSourceNote?: string | null;
   investedAmount: number;
   cashPercent?: number;
   positionCount: number;

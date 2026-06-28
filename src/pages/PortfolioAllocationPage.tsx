@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { portfolioAllocationApi } from "../api/portfolioAllocationApi";
 import MoneyTextField from "../components/MoneyTextField";
 import type {
+  PortfolioAllocationCashSource,
   PortfolioAllocationIndustry,
   PortfolioAllocationPosition,
   PortfolioAllocationPriority,
@@ -43,7 +44,7 @@ type ReviewForm = {
 
 const defaultForm: ReviewForm = {
   totalCapital: "",
-  cashAmount: "0",
+  cashAmount: "",
   maxStockWeightPercent: "20",
   maxIndustryWeightPercent: "35",
   minCashPercent: "10",
@@ -67,7 +68,6 @@ export default function PortfolioAllocationPage() {
       setForm((current) => ({
         ...current,
         totalCapital: current.totalCapital || valueString(result.summary.totalCapital),
-        cashAmount: current.cashAmount || valueString(result.summary.cashAmount),
       }));
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -123,7 +123,7 @@ export default function PortfolioAllocationPage() {
           <Typography variant="h6" gutterBottom>Cấu hình review</Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(6, minmax(0, 1fr))" }, gap: 2 }}>
             <MoneyTextField label="Tổng vốn đầu tư" {...moneyField("totalCapital")} helperText="Có thể để trống để lấy tiền mặt + giá trị vị thế" />
-            <MoneyTextField label="Tiền mặt" {...moneyField("cashAmount")} />
+            <MoneyTextField label="Tiền mặt" {...moneyField("cashAmount")} helperText="Để trống để dùng số dư cash ledger" />
             <TextField label="Max mỗi mã (%)" type="number" {...field("maxStockWeightPercent")} />
             <TextField label="Max mỗi ngành (%)" type="number" {...field("maxIndustryWeightPercent")} />
             <TextField label="Tiền mặt tối thiểu (%)" type="number" {...field("minCashPercent")} />
@@ -154,16 +154,47 @@ export default function PortfolioAllocationPage() {
 function SummaryCards({ data }: { data: PortfolioAllocationReviewResponse }) {
   const summary = data.summary;
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 2 }}>
-      <Metric label="Tổng vốn" value={formatVnd(summary.totalCapital)} />
-      <Metric label="Tiền mặt" value={formatVnd(summary.cashAmount)} />
-      <Metric label="Đã đầu tư" value={formatVnd(summary.investedAmount)} />
-      <Metric label="Tỷ lệ tiền mặt" value={formatPercent(summary.cashPercent)} />
-      <Metric label="Số mã nắm giữ" value={formatNumber(summary.positionCount)} />
-      <Metric label="Rủi ro tổng quan" value={riskLabel(summary.riskLevel)} tone={riskTone(summary.riskLevel)} />
-      <Metric label="Top mã" value={formatPercent(summary.topStockWeight)} />
-      <Metric label="Top ngành" value={formatPercent(summary.topIndustryWeight)} />
-    </Box>
+    <Stack spacing={2}>
+      <CashSourceNotice
+        source={summary.cashSource}
+        note={summary.cashSourceNote}
+        cashLedgerBalance={summary.cashLedgerBalance}
+      />
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 2 }}>
+        <Metric label="Tổng vốn" value={formatVnd(summary.totalCapital)} />
+        <Metric label="Tiền mặt" value={formatVnd(summary.cashAmount)} />
+        <Metric label="Đã đầu tư" value={formatVnd(summary.investedAmount)} />
+        <Metric label="Tỷ lệ tiền mặt" value={formatPercent(summary.cashPercent)} />
+        <Metric label="Số mã nắm giữ" value={formatNumber(summary.positionCount)} />
+        <Metric label="Rủi ro tổng quan" value={riskLabel(summary.riskLevel)} tone={riskTone(summary.riskLevel)} />
+        <Metric label="Top mã" value={formatPercent(summary.topStockWeight)} />
+        <Metric label="Top ngành" value={formatPercent(summary.topIndustryWeight)} />
+      </Box>
+    </Stack>
+  );
+}
+
+function CashSourceNotice({
+  source,
+  note,
+  cashLedgerBalance,
+}: {
+  source?: PortfolioAllocationCashSource;
+  note?: string | null;
+  cashLedgerBalance?: number | null;
+}) {
+  if (!source) return null;
+  const severity = source === "CASH_LEDGER_EMPTY" ? "warning" : source === "MANUAL_OVERRIDE" ? "info" : "success";
+  return (
+    <Alert severity={severity}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: { sm: "center" } }}>
+        <Chip size="small" color={cashSourceColor(source)} label={cashSourceLabel(source)} />
+        <Typography variant="body2">
+          {cashSourceMessage(source, note)}
+          {source === "CASH_LEDGER" && cashLedgerBalance != null ? ` Số dư ledger: ${formatVnd(cashLedgerBalance)}.` : ""}
+        </Typography>
+      </Stack>
+    </Alert>
   );
 }
 
@@ -322,10 +353,10 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: "
 
 function validateForm(form: ReviewForm) {
   const totalCapital = optionalNumber(form.totalCapital);
-  const cashAmount = optionalNumber(form.cashAmount) ?? 0;
+  const cashAmount = optionalNumber(form.cashAmount);
   if (totalCapital !== undefined && totalCapital <= 0) return "Tổng vốn đầu tư phải lớn hơn 0 nếu nhập.";
-  if (cashAmount < 0) return "Tiền mặt phải >= 0.";
-  if (totalCapital !== undefined && cashAmount > totalCapital) return "Tiền mặt không được lớn hơn tổng vốn.";
+  if (cashAmount !== undefined && cashAmount < 0) return "Tiền mặt phải >= 0.";
+  if (totalCapital !== undefined && cashAmount !== undefined && cashAmount > totalCapital) return "Tiền mặt không được lớn hơn tổng vốn.";
   for (const [key, label, allowZero] of [
     ["maxStockWeightPercent", "Max tỷ trọng mỗi mã", false],
     ["maxIndustryWeightPercent", "Max tỷ trọng mỗi ngành", false],
@@ -342,7 +373,7 @@ function validateForm(form: ReviewForm) {
 function formPayload(form: ReviewForm): PortfolioAllocationReviewRequest {
   return {
     totalCapital: optionalNumber(form.totalCapital),
-    cashAmount: optionalNumber(form.cashAmount) ?? 0,
+    cashAmount: optionalNumber(form.cashAmount),
     maxStockWeightPercent: optionalNumber(form.maxStockWeightPercent),
     maxIndustryWeightPercent: optionalNumber(form.maxIndustryWeightPercent),
     minCashPercent: optionalNumber(form.minCashPercent),
@@ -371,6 +402,22 @@ function formatVnd(value?: number) { return value == null ? "-" : `${value.toLoc
 function formatPercent(value?: number) { return value == null ? "-" : `${value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`; }
 function formatNumber(value?: number) { return value == null ? "-" : value.toLocaleString("vi-VN", { maximumFractionDigits: 4 }); }
 function signedColor(value?: number) { if (value == null || value === 0) return "text.primary"; return value > 0 ? "success.main" : "error.main"; }
+function cashSourceLabel(value: PortfolioAllocationCashSource) {
+  if (value === "CASH_LEDGER") return "Nguồn tiền mặt: Cash ledger";
+  if (value === "MANUAL_OVERRIDE") return "Nguồn tiền mặt: Nhập tay";
+  return "Nguồn tiền mặt: Chưa có cash ledger";
+}
+function cashSourceMessage(value: PortfolioAllocationCashSource, note?: string | null) {
+  if (note) return note;
+  if (value === "CASH_LEDGER") return "Tiền mặt lấy từ cash ledger persisted.";
+  if (value === "MANUAL_OVERRIDE") return "Đang dùng tiền mặt nhập tay, không phải số dư cash ledger.";
+  return "Chưa có dữ liệu cash ledger. Hãy thêm ADJUSTMENT hoặc rebuild từ transaction ledger.";
+}
+function cashSourceColor(value: PortfolioAllocationCashSource): "success" | "info" | "warning" {
+  if (value === "CASH_LEDGER") return "success";
+  if (value === "MANUAL_OVERRIDE") return "info";
+  return "warning";
+}
 function riskLabel(value: PortfolioAllocationRiskLevel) { return value === "HIGH" ? "Cao" : value === "MEDIUM" ? "Trung bình" : "Thấp"; }
 function riskTone(value: PortfolioAllocationRiskLevel): "success" | "warning" | "error" { return value === "HIGH" ? "error" : value === "MEDIUM" ? "warning" : "success"; }
 function allocationStatusLabel(value: PortfolioAllocationStatus) {
