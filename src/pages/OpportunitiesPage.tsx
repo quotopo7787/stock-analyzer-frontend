@@ -51,6 +51,7 @@ import GridViewOutlinedIcon from "@mui/icons-material/GridViewOutlined";
 import FormatListBulletedOutlinedIcon from "@mui/icons-material/FormatListBulletedOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { Link, useNavigate } from "react-router-dom";
+import { macroContextApi } from "../api/macroContextApi";
 import { opportunitiesApi } from "../api/opportunitiesApi";
 import {
   createResearchThesisDraftId,
@@ -65,6 +66,7 @@ import type {
   OpportunitySummaryItem,
   OpportunityWrappedResponse,
 } from "../types/opportunities";
+import type { MacroContext } from "../types/macroContext";
 import type { ResearchThesisDraft, ResearchThesisStatus } from "../types/researchThesis";
 import type { StockPricePoint } from "../types/stock";
 
@@ -80,6 +82,28 @@ const compactChipSx = {
 
 const currentYear = new Date().getFullYear();
 const detailRequestTimeoutMs = 15000;
+
+function macroContextFromOpportunity(item: OpportunitySummaryItem | OpportunityDetailItem | null): MacroContext | null {
+  if (!item || item.macroScore == null) {
+    return null;
+  }
+
+  return {
+    symbol: item.code,
+    industry: item.industry,
+    industryGroup: item.industryGroup,
+    finalScore: item.finalScore,
+    macroScore: item.macroScore,
+    macroAdjustment: item.macroAdjustment,
+    adjustedScore: item.adjustedScore,
+    macroLevel: item.macroLevel,
+    macroSignals: item.macroSignals ?? [],
+    macroWarnings: item.macroWarnings ?? [],
+    assumptions: item.macroAssumptions ?? [],
+    contextDate: item.macroContextDate,
+    note: item.macroNote,
+  };
+}
 
 const priceChartRanges: Array<{ value: PriceChartRange; label: string; days?: number }> = [
   { value: "1M", label: "1T", days: 31 },
@@ -184,6 +208,9 @@ export default function OpportunitiesPage() {
   const [priceHistory, setPriceHistory] = useState<StockPricePoint[]>([]);
   const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
   const [priceHistoryError, setPriceHistoryError] = useState("");
+  const [macroContext, setMacroContext] = useState<MacroContext | null>(null);
+  const [macroContextLoading, setMacroContextLoading] = useState(false);
+  const [macroContextError, setMacroContextError] = useState("");
 
   const items = data?.items ?? [];
   const summary = data?.summary;
@@ -266,10 +293,15 @@ export default function OpportunitiesPage() {
     setDetailError("");
     setPriceHistory([]);
     setPriceHistoryError("");
+    setMacroContext(null);
+    setMacroContextError("");
     setActionMessage("");
     setActionError("");
     setDetailLoading(true);
     setPriceHistoryLoading(true);
+    setMacroContextLoading(true);
+
+    let embeddedMacroLoaded = false;
 
     try {
       const response = await withTimeout(
@@ -280,10 +312,22 @@ export default function OpportunitiesPage() {
         detailRequestTimeoutMs
       );
       setDetail(response);
+      const embeddedMacro = macroContextFromOpportunity(response);
+      if (embeddedMacro) {
+        setMacroContext(embeddedMacro);
+        setMacroContextLoading(false);
+        embeddedMacroLoaded = true;
+      }
     } catch (error) {
       console.warn("Opportunity detail fallback", error);
       setDetailError("Không tải được chi tiết mã này. Tạm thời hiển thị dữ liệu tóm tắt trên bảng.");
       setDetail(item as OpportunityDetailItem);
+      const embeddedMacro = macroContextFromOpportunity(item);
+      if (embeddedMacro) {
+        setMacroContext(embeddedMacro);
+        setMacroContextLoading(false);
+        embeddedMacroLoaded = true;
+      }
     } finally {
       setDetailLoading(false);
     }
@@ -297,6 +341,18 @@ export default function OpportunitiesPage() {
     } finally {
       setPriceHistoryLoading(false);
     }
+
+    if (!embeddedMacroLoaded) {
+      try {
+        const context = await macroContextApi.getBySymbol(item.code, item.finalScore);
+        setMacroContext(context);
+    } catch (error) {
+      console.warn("Macro context unavailable", error);
+      setMacroContextError("Chưa tải được bối cảnh vĩ mô cho mã này.");
+      } finally {
+        setMacroContextLoading(false);
+      }
+    }
   };
 
   const closeDetail = () => {
@@ -305,6 +361,8 @@ export default function OpportunitiesPage() {
     setDetailError("");
     setPriceHistory([]);
     setPriceHistoryError("");
+    setMacroContext(null);
+    setMacroContextError("");
     setActionMessage("");
     setActionError("");
   };
@@ -654,6 +712,9 @@ export default function OpportunitiesPage() {
         priceHistory={priceHistory}
         priceHistoryLoading={priceHistoryLoading}
         priceHistoryError={priceHistoryError}
+        macroContext={macroContext}
+        macroContextLoading={macroContextLoading}
+        macroContextError={macroContextError}
         loading={detailLoading}
         error={detailError}
         actionMessage={actionMessage}
@@ -664,6 +725,101 @@ export default function OpportunitiesPage() {
         onReject={rejectOpportunity}
         onClose={closeDetail}
       />
+    </Box>
+  );
+}
+
+function MacroContextCard({
+  context,
+  loading,
+  error,
+  fallbackFinalScore,
+}: {
+  context: MacroContext | null;
+  loading: boolean;
+  error: string;
+  fallbackFinalScore?: number | null;
+}) {
+  const finalScore = context?.finalScore ?? fallbackFinalScore;
+  const signals = context?.macroSignals ?? [];
+  const warnings = context?.macroWarnings ?? [];
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "flex-start" } }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mb: 0.75 }}>
+              <TrendingUpOutlinedIcon color="primary" fontSize="small" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 850 }}>
+                Bối cảnh vĩ mô
+              </Typography>
+              {context?.macroLevel && (
+                <Chip size="small" color={macroLevelColor(context.macroLevel)} label={macroLevelLabel(context.macroLevel)} sx={{ fontWeight: 700 }} />
+              )}
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              Lớp điều chỉnh tham khảo cho timing/rủi ro, không thay đổi điểm cơ bản.
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(104px, 1fr))" }, gap: 1, minWidth: { md: 520 } }}>
+            <MacroMetric label="Điểm cơ bản" value={formatScore(finalScore)} />
+            <MacroMetric label="Điểm macro" value={formatScore(context?.macroScore)} />
+            <MacroMetric label="Điều chỉnh" value={formatSignedScore(context?.macroAdjustment)} />
+            <MacroMetric label="Sau macro" value={formatScore(context?.adjustedScore)} emphasize />
+          </Box>
+        </Stack>
+
+        {loading && <LinearProgress sx={{ mt: 1.5 }} />}
+        {error && !loading && (
+          <Alert severity="warning" sx={{ mt: 1.5, py: 0.75 }}>
+            {error}
+          </Alert>
+        )}
+
+        {context && !loading && (
+          <Box sx={{ mt: 1.5, display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.25 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, fontWeight: 700 }}>
+                Tín hiệu hỗ trợ
+              </Typography>
+              <Stack spacing={0.6}>
+                {(signals.length ? signals : ["Chưa có tín hiệu macro hỗ trợ rõ ràng."]).map((text) => (
+                  <Alert key={text} severity="success" sx={{ py: 0.55, px: 1 }}>
+                    {text}
+                  </Alert>
+                ))}
+              </Stack>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, fontWeight: 700 }}>
+                Cảnh báo
+              </Typography>
+              <Stack spacing={0.6}>
+                {(warnings.length ? warnings : ["Chưa có cảnh báo macro lớn."]).map((text) => (
+                  <Alert key={text} severity={warnings.length ? "warning" : "info"} sx={{ py: 0.55, px: 1 }}>
+                    {text}
+                  </Alert>
+                ))}
+              </Stack>
+            </Box>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MacroMetric({ label, value, emphasize = false }: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, px: 1, py: 0.85, bgcolor: emphasize ? "rgba(25, 118, 210, 0.06)" : "background.default" }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        {label}
+      </Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 900, color: emphasize ? "primary.main" : "text.primary" }}>
+        {value}
+      </Typography>
     </Box>
   );
 }
@@ -1009,6 +1165,9 @@ function OpportunityDetailDrawer({
   priceHistory,
   priceHistoryLoading,
   priceHistoryError,
+  macroContext,
+  macroContextLoading,
+  macroContextError,
   loading,
   error,
   actionMessage,
@@ -1025,6 +1184,9 @@ function OpportunityDetailDrawer({
   priceHistory: StockPricePoint[];
   priceHistoryLoading: boolean;
   priceHistoryError: string;
+  macroContext: MacroContext | null;
+  macroContextLoading: boolean;
+  macroContextError: string;
   loading: boolean;
   error: string;
   actionMessage: string;
@@ -1201,6 +1363,13 @@ function OpportunityDetailDrawer({
                 </Box>
               </Stack>
             </Box>
+
+            <MacroContextCard
+              context={macroContext}
+              loading={macroContextLoading}
+              error={macroContextError}
+              fallbackFinalScore={detail.finalScore}
+            />
 
             <ValuationV2CompactTable detail={detail} />
 
@@ -2481,6 +2650,50 @@ function CompactMetric({ label, value }: { label: string; value: string }) {
 function formatNumber(value?: number | null, maximumFractionDigits = 2) {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
   return value.toLocaleString("vi-VN", { maximumFractionDigits });
+}
+
+function formatScore(value?: number | null) {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  return formatNumber(value, 2);
+}
+
+function formatSignedScore(value?: number | null) {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${formatNumber(value, 2)}`;
+}
+
+function macroLevelLabel(value?: string | null) {
+  switch (value) {
+    case "FAVORABLE":
+      return "Thuận lợi";
+    case "SLIGHTLY_FAVORABLE":
+      return "Hơi thuận lợi";
+    case "NEUTRAL":
+      return "Trung tính";
+    case "UNFAVORABLE":
+      return "Bất lợi";
+    case "HIGH_RISK":
+      return "Rủi ro cao";
+    default:
+      return "Chưa rõ";
+  }
+}
+
+function macroLevelColor(value?: string | null): BadgeColor {
+  switch (value) {
+    case "FAVORABLE":
+    case "SLIGHTLY_FAVORABLE":
+      return "success";
+    case "UNFAVORABLE":
+      return "warning";
+    case "HIGH_RISK":
+      return "error";
+    case "NEUTRAL":
+      return "info";
+    default:
+      return "default";
+  }
 }
 
 function formatPercent(value?: number | null) {

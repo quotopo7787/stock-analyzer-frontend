@@ -21,6 +21,7 @@ import ValuationScenariosPage from "./pages/ValuationScenariosPage";
 import PaperTradingPage from "./pages/PaperTradingPage";
 import BacktestPage from "./pages/BacktestPage";
 import RealtimePricePage from "./pages/RealtimePricePage";
+import MacroContextAdminPage from "./pages/MacroContextAdminPage";
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
           <Route path="paper-trading" element={<PaperTradingPage />} />
           <Route path="backtest" element={<BacktestPage />} />
           <Route path="realtime" element={<RealtimePricePage />} />
+          <Route path="macro-context" element={<MacroContextAdminPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

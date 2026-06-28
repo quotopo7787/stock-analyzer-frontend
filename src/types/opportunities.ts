@@ -162,6 +162,15 @@ export interface OpportunitySummaryItem {
   balanceSheetScore?: number | null;
   valuationScore?: number | null;
   riskPenalty?: number | null;
+  macroScore?: number | null;
+  macroAdjustment?: number | null;
+  adjustedScore?: number | null;
+  macroLevel?: string | null;
+  macroSignals?: string[];
+  macroWarnings?: string[];
+  macroAssumptions?: string[];
+  macroContextDate?: string | null;
+  macroNote?: string | null;
   decision: Decision | string;
   decisionLabel?: string | null;
   decisionReasonCode?: DecisionReasonCode | string | null;

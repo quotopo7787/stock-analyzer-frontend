@@ -6,7 +6,7 @@ import {
 import {
   AccountBalanceWalletOutlined, CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
   NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ScienceOutlined, ShowChart, SignalCellularAlt,
-  StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined, SavingsOutlined, ReceiptLongOutlined,
+  StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined, SavingsOutlined, ReceiptLongOutlined, PublicOutlined,
 } from "@mui/icons-material";
 import type { ReactNode } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
@@ -43,6 +43,7 @@ const navSections: NavSection[] = [
     items: [
       { label: "Cơ hội", to: "/opportunities", icon: <QueryStatsOutlined /> },
       { label: "Bảng giá realtime", to: "/realtime", icon: <ShowChart /> },
+      { label: "Bối cảnh vĩ mô", to: "/macro-context", icon: <PublicOutlined /> },
     ],
   },
   {
