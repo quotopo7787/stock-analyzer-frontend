@@ -254,11 +254,14 @@ function ScoreHistorySection({ stockCode }: { stockCode: string }) {
 
   useEffect(() => {
     if (!stockCode.trim()) return;
-    setLoading(true);
-    notificationApi.getScoreHistory(stockCode.trim().toUpperCase(), 90)
-      .then(setTimeline)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      notificationApi.getScoreHistory(stockCode.trim().toUpperCase(), 90)
+        .then(setTimeline)
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [stockCode]);
 
   const trendMap: Record<string, { color: "success" | "error" | "warning" | "default"; label: string }> = {

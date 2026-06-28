@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Divider,
   IconButton,
   LinearProgress,
@@ -24,14 +23,14 @@ import {
   Typography,
 } from "@mui/material";
 import {
-  NotificationsActiveOutlined,
-  DeleteOutlined,
-  RefreshOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined,
-  SearchOutlined,
-  PlayArrowOutlined,
   AddOutlined,
+  DeleteOutlined,
+  NotificationsActiveOutlined,
+  PlayArrowOutlined,
+  RefreshOutlined,
+  SearchOutlined,
+  TrendingDownOutlined,
+  TrendingUpOutlined,
   TuneOutlined,
 } from "@mui/icons-material";
 import { notificationApi } from "../api/notificationApi";
@@ -44,35 +43,39 @@ import type {
   ScoreTimeline,
 } from "../types/notifications";
 
-function fmt(v: number | null | undefined, d = 2): string {
-  if (v == null) return "—";
-  return v.toFixed(d);
+function fmt(value: number | null | undefined, digits = 2): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return value.toFixed(digits);
 }
 
-function timeFmt(iso: string): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+function timeFmt(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+  });
 }
 
-function apiErr(e: unknown): string {
-  if (e instanceof Error) return e.message;
-  return String(e);
+function apiErr(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
-const typeColor: Record<string, "info" | "warning" | "success" | "error" | "default"> = {
+const notificationTypeColor: Record<string, "info" | "warning" | "success" | "error" | "default"> = {
   SCORE_CHANGE: "warning",
   WATCHLIST_ALERT: "info",
   OPPORTUNITY_SIGNAL: "success",
 };
 
-// ─── Notifications Tab ───
-
 function NotificationsTab() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
-  const esRef = useRef<EventSource | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,27 +87,30 @@ function NotificationsTab() {
   }, []);
 
   useEffect(() => {
-    load();
-    const es = notificationApi.subscribe();
-    esRef.current = es;
-    es.onopen = () => setSseConnected(true);
-    es.onerror = () => setSseConnected(false);
-    es.onmessage = (e) => {
+    const timer = window.setTimeout(() => void load(), 0);
+    const eventSource = notificationApi.subscribe();
+    eventSourceRef.current = eventSource;
+
+    const pushNotification = (event: MessageEvent) => {
       try {
-        const n: Notification = JSON.parse(e.data);
-        setNotifications((prev) => [n, ...prev].slice(0, 200));
-      } catch { /* ignore */ }
+        const notification: Notification = JSON.parse(event.data);
+        setNotifications((current) => [notification, ...current].slice(0, 200));
+      } catch {
+        // Ignore malformed SSE payloads.
+      }
     };
-    for (const t of ["SCORE_CHANGE", "WATCHLIST_ALERT", "OPPORTUNITY_SIGNAL"]) {
-      es.addEventListener(t, (e: Event) => {
-        try {
-          const me = e as MessageEvent;
-          const n: Notification = JSON.parse(me.data);
-          setNotifications((prev) => [n, ...prev].slice(0, 200));
-        } catch { /* ignore */ }
-      });
+
+    eventSource.onopen = () => setSseConnected(true);
+    eventSource.onerror = () => setSseConnected(false);
+    eventSource.onmessage = pushNotification;
+    for (const type of ["SCORE_CHANGE", "WATCHLIST_ALERT", "OPPORTUNITY_SIGNAL"]) {
+      eventSource.addEventListener(type, pushNotification as EventListener);
     }
-    return () => es.close();
+
+    return () => {
+      window.clearTimeout(timer);
+      eventSource.close();
+    };
   }, [load]);
 
   return (
@@ -112,17 +118,23 @@ function NotificationsTab() {
       <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: "center" }}>
         <Chip
           size="small"
-          label={sseConnected ? "SSE Kết nối" : "SSE Ngắt"}
+          label={sseConnected ? "SSE kết nối" : "SSE ngắt"}
           color={sseConnected ? "success" : "default"}
           variant="outlined"
         />
         <Box sx={{ flex: 1 }} />
-        <Button size="small" startIcon={<RefreshOutlined />} onClick={load}>Tải lại</Button>
+        <Button size="small" startIcon={<RefreshOutlined />} onClick={load}>
+          Tải lại
+        </Button>
       </Stack>
+
       {loading && <LinearProgress sx={{ mb: 1 }} />}
       {notifications.length === 0 && !loading && (
-        <Alert severity="info">Chưa có thông báo nào. Thông báo sẽ xuất hiện realtime khi hệ thống phát hiện tín hiệu.</Alert>
+        <Alert severity="info">
+          Chưa có thông báo nào. Thông báo sẽ xuất hiện realtime khi hệ thống phát hiện tín hiệu.
+        </Alert>
       )}
+
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -136,19 +148,26 @@ function NotificationsTab() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {notifications.map((n, i) => (
-              <TableRow key={`${n.timestamp}-${i}`} hover>
-                <TableCell sx={{ whiteSpace: "nowrap" }}>{timeFmt(n.timestamp)}</TableCell>
+            {notifications.map((notification, index) => (
+              <TableRow key={`${notification.timestamp}-${index}`} hover>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>{timeFmt(notification.timestamp)}</TableCell>
                 <TableCell>
-                  <Chip size="small" label={n.type} color={typeColor[n.type] ?? "default"} variant="outlined" />
+                  <Chip
+                    size="small"
+                    label={notification.type}
+                    color={notificationTypeColor[notification.type] ?? "default"}
+                    variant="outlined"
+                  />
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{n.title}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{notification.title}</TableCell>
                 <TableCell>
-                  {n.stockCode && <Chip size="small" label={n.stockCode} variant="filled" />}
+                  {notification.stockCode ? <Chip size="small" label={notification.stockCode} /> : "—"}
                 </TableCell>
-                <TableCell align="right">{fmt(n.score)}</TableCell>
-                <TableCell sx={{ maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  <Tooltip title={n.message}><span>{n.message}</span></Tooltip>
+                <TableCell align="right">{fmt(notification.score)}</TableCell>
+                <TableCell sx={{ maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <Tooltip title={notification.message}>
+                    <span>{notification.message}</span>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
@@ -158,8 +177,6 @@ function NotificationsTab() {
     </Box>
   );
 }
-
-// ─── Watchlist Alerts Tab ───
 
 function WatchlistTab() {
   const [rules, setRules] = useState<AlertRule[]>([]);
@@ -174,14 +191,17 @@ function WatchlistTab() {
     setLoading(true);
     try {
       setRules(await notificationApi.listRules());
-    } catch (e) {
-      setError(apiErr(e));
+    } catch (err) {
+      setError(apiErr(err));
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -189,12 +209,12 @@ function WatchlistTab() {
     try {
       await notificationApi.addRule({
         name: newName.trim(),
-        minScore: parseFloat(newMinScore) || null,
+        minScore: Number.parseFloat(newMinScore) || null,
       });
       setNewName("");
       await load();
-    } catch (e) {
-      setError(apiErr(e));
+    } catch (err) {
+      setError(apiErr(err));
     } finally {
       setActionLoading("");
     }
@@ -204,28 +224,28 @@ function WatchlistTab() {
     try {
       await notificationApi.removeRule(id);
       await load();
-    } catch (e) {
-      setError(apiErr(e));
+    } catch (err) {
+      setError(apiErr(err));
     }
   };
 
-  const handleEvaluate = async () => {
-    setActionLoading("eval");
+  const runEvaluate = async () => {
+    setActionLoading("evaluate");
     try {
       setResults(await notificationApi.evaluate());
-    } catch (e) {
-      setError(apiErr(e));
+    } catch (err) {
+      setError(apiErr(err));
     } finally {
       setActionLoading("");
     }
   };
 
-  const handleScan = async () => {
+  const runScan = async () => {
     setActionLoading("scan");
     try {
       setResults(await notificationApi.scan());
-    } catch (e) {
-      setError(apiErr(e));
+    } catch (err) {
+      setError(apiErr(err));
     } finally {
       setActionLoading("");
     }
@@ -233,21 +253,21 @@ function WatchlistTab() {
 
   return (
     <Box>
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+          {error}
+        </Alert>
+      )}
 
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Thêm quy tắc cảnh báo</Typography>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+            Thêm quy tắc cảnh báo
+          </Typography>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             <TextField size="small" label="Tên quy tắc" value={newName} onChange={(e) => setNewName(e.target.value)} sx={{ width: 240 }} />
-            <TextField size="small" label="Score tối thiểu" type="number" value={newMinScore} onChange={(e) => setNewMinScore(e.target.value)} sx={{ width: 140 }} />
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddOutlined />}
-              onClick={handleAdd}
-              disabled={actionLoading === "add" || !newName.trim()}
-            >
+            <TextField size="small" label="Score tối thiểu" type="number" value={newMinScore} onChange={(e) => setNewMinScore(e.target.value)} sx={{ width: 150 }} />
+            <Button variant="contained" size="small" startIcon={<AddOutlined />} onClick={handleAdd} disabled={actionLoading === "add" || !newName.trim()}>
               Thêm
             </Button>
           </Stack>
@@ -255,55 +275,61 @@ function WatchlistTab() {
       </Card>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-        <Button size="small" variant="outlined" startIcon={<PlayArrowOutlined />} onClick={handleEvaluate}
-                disabled={actionLoading === "eval"}>
+        <Button size="small" variant="outlined" startIcon={<PlayArrowOutlined />} onClick={runEvaluate} disabled={actionLoading === "evaluate"}>
           Đánh giá rules
         </Button>
-        <Button size="small" variant="outlined" startIcon={<SearchOutlined />} onClick={handleScan}
-                disabled={actionLoading === "scan"}>
+        <Button size="small" variant="outlined" startIcon={<SearchOutlined />} onClick={runScan} disabled={actionLoading === "scan"}>
           Quét cơ hội
         </Button>
       </Stack>
 
       {loading && <LinearProgress sx={{ mb: 1 }} />}
 
-      {rules.length > 0 && (
-        <>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>Danh sách quy tắc ({rules.length})</Typography>
-          <TableContainer sx={{ mb: 3 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Tên</TableCell>
-                  <TableCell align="right">Min Score</TableCell>
-                  <TableCell>Ngành</TableCell>
-                  <TableCell>Sector Inflow</TableCell>
-                  <TableCell>Trạng thái</TableCell>
-                  <TableCell />
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        Danh sách quy tắc ({rules.length})
+      </Typography>
+      {rules.length === 0 && !loading ? (
+        <Alert severity="info" sx={{ mb: 3 }}>Chưa có quy tắc cảnh báo nào.</Alert>
+      ) : (
+        <TableContainer sx={{ mb: 3 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Tên</TableCell>
+                <TableCell align="right">Min score</TableCell>
+                <TableCell>Ngành</TableCell>
+                <TableCell>Sector inflow</TableCell>
+                <TableCell>Trạng thái</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rules.map((rule) => (
+                <TableRow key={rule.id} hover>
+                  <TableCell sx={{ fontWeight: 600 }}>{rule.name}</TableCell>
+                  <TableCell align="right">{fmt(rule.minScore)}</TableCell>
+                  <TableCell>{rule.industryGroups?.join(", ") || "Tất cả"}</TableCell>
+                  <TableCell>{rule.requireSectorInflow ? "Có" : "Không"}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={rule.active ? "Hoạt động" : "Tắt"} color={rule.active ? "success" : "default"} />
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => handleDelete(rule.id)}>
+                      <DeleteOutlined fontSize="small" />
+                    </IconButton>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {rules.map((r) => (
-                  <TableRow key={r.id} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{r.name}</TableCell>
-                    <TableCell align="right">{fmt(r.minScore)}</TableCell>
-                    <TableCell>{r.industryGroups?.join(", ") || "Tất cả"}</TableCell>
-                    <TableCell>{r.requireSectorInflow ? "Có" : "Không"}</TableCell>
-                    <TableCell><Chip size="small" label={r.active ? "Hoạt động" : "Tắt"} color={r.active ? "success" : "default"} /></TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleDelete(r.id)}><DeleteOutlined fontSize="small" /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {results.length > 0 && (
         <>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>Kết quả ({results.length} cảnh báo)</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Kết quả ({results.length} cảnh báo)
+          </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -316,14 +342,14 @@ function WatchlistTab() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {results.map((r, i) => (
-                  <TableRow key={`${r.stockCode}-${i}`} hover>
-                    <TableCell>{r.ruleName}</TableCell>
-                    <TableCell><Chip size="small" label={r.stockCode} /></TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(r.score)}</TableCell>
-                    <TableCell>{r.decision}</TableCell>
-                    <TableCell sx={{ maxWidth: 350, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <Tooltip title={r.message}><span>{r.message}</span></Tooltip>
+                {results.map((result, index) => (
+                  <TableRow key={`${result.stockCode}-${index}`} hover>
+                    <TableCell>{result.ruleName}</TableCell>
+                    <TableCell><Chip size="small" label={result.stockCode} /></TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(result.score)}</TableCell>
+                    <TableCell>{result.decision}</TableCell>
+                    <TableCell sx={{ maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <Tooltip title={result.message}><span>{result.message}</span></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -335,8 +361,6 @@ function WatchlistTab() {
     </Box>
   );
 }
-
-// ─── Score History Tab ───
 
 function ScoreHistoryTab() {
   const [stockCode, setStockCode] = useState("");
@@ -355,9 +379,9 @@ function ScoreHistoryTab() {
     setLoading(true);
     setError("");
     try {
-      setTimeline(await notificationApi.getScoreHistory(stockCode.trim().toUpperCase(), parseInt(days) || 90));
-    } catch (e) {
-      setError(apiErr(e));
+      setTimeline(await notificationApi.getScoreHistory(stockCode.trim().toUpperCase(), Number.parseInt(days, 10) || 90));
+    } catch (err) {
+      setError(apiErr(err));
     } finally {
       setLoading(false);
     }
@@ -370,21 +394,23 @@ function ScoreHistoryTab() {
       STABLE: { color: "default", label: "Ổn định" },
       INSUFFICIENT_DATA: { color: "warning", label: "Chưa đủ dữ liệu" },
     };
-    const m = map[trend] ?? { color: "default" as const, label: trend };
-    return <Chip size="small" label={m.label} color={m.color} />;
+    const item = map[trend] ?? { color: "default" as const, label: trend };
+    return <Chip size="small" label={item.label} color={item.color} />;
   };
 
   return (
     <Box>
-      <Stack direction="row" spacing={1.5} sx={{ mb: 3, alignItems: "center" }}>
-        <TextField size="small" label="Mã cổ phiếu" value={stockCode}
-                   onChange={(e) => setStockCode(e.target.value.toUpperCase())}
-                   onKeyDown={(e) => e.key === "Enter" && search()}
-                   sx={{ width: 160 }} />
-        <TextField size="small" label="Số ngày" type="number" value={days}
-                   onChange={(e) => setDays(e.target.value)} sx={{ width: 100 }} />
-        <Button variant="contained" size="small" startIcon={<SearchOutlined />} onClick={search}
-                disabled={loading || !stockCode.trim()}>
+      <Stack direction="row" spacing={1.5} sx={{ mb: 3, alignItems: "center", flexWrap: "wrap" }}>
+        <TextField
+          size="small"
+          label="Mã cổ phiếu"
+          value={stockCode}
+          onChange={(e) => setStockCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && void search()}
+          sx={{ width: 160 }}
+        />
+        <TextField size="small" label="Số ngày" type="number" value={days} onChange={(e) => setDays(e.target.value)} sx={{ width: 110 }} />
+        <Button variant="contained" size="small" startIcon={<SearchOutlined />} onClick={search} disabled={loading || !stockCode.trim()}>
           Tra cứu
         </Button>
       </Stack>
@@ -395,13 +421,11 @@ function ScoreHistoryTab() {
       {timeline && (
         <Card variant="outlined" sx={{ mb: 3 }}>
           <CardContent>
-            <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 2 }}>
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 2, flexWrap: "wrap" }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>{timeline.stockCode}</Typography>
               {trendChip(timeline.trend)}
               {timeline.latestScore != null && (
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  Score hiện tại: {fmt(timeline.latestScore)}
-                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>Score hiện tại: {fmt(timeline.latestScore)}</Typography>
               )}
               {timeline.scoreChange != null && (
                 <Chip
@@ -420,7 +444,7 @@ function ScoreHistoryTab() {
                   <TableHead>
                     <TableRow>
                       <TableCell>Ngày</TableCell>
-                      <TableCell align="right">Final Score</TableCell>
+                      <TableCell align="right">Final score</TableCell>
                       <TableCell align="right">Quality</TableCell>
                       <TableCell align="right">Growth</TableCell>
                       <TableCell align="right">Valuation</TableCell>
@@ -428,14 +452,14 @@ function ScoreHistoryTab() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {timeline.dataPoints.map((p) => (
-                      <TableRow key={p.date} hover>
-                        <TableCell>{p.date}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(p.finalScore)}</TableCell>
-                        <TableCell align="right">{fmt(p.qualityScore)}</TableCell>
-                        <TableCell align="right">{fmt(p.growthScore)}</TableCell>
-                        <TableCell align="right">{fmt(p.valuationScore)}</TableCell>
-                        <TableCell>{p.decision}</TableCell>
+                    {timeline.dataPoints.map((point) => (
+                      <TableRow key={point.date} hover>
+                        <TableCell>{point.date}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(point.finalScore)}</TableCell>
+                        <TableCell align="right">{fmt(point.qualityScore)}</TableCell>
+                        <TableCell align="right">{fmt(point.growthScore)}</TableCell>
+                        <TableCell align="right">{fmt(point.valuationScore)}</TableCell>
+                        <TableCell>{point.decision}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -464,22 +488,22 @@ function ScoreHistoryTab() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {movements.map((m) => (
-                <TableRow key={m.stockCode} hover>
-                  <TableCell sx={{ fontWeight: 600 }}>{m.stockCode}</TableCell>
-                  <TableCell align="right">{fmt(m.previousScore)}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(m.currentScore)}</TableCell>
+              {movements.map((movement) => (
+                <TableRow key={movement.stockCode} hover>
+                  <TableCell sx={{ fontWeight: 600 }}>{movement.stockCode}</TableCell>
+                  <TableCell align="right">{fmt(movement.previousScore)}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(movement.currentScore)}</TableCell>
                   <TableCell align="right">
                     <Chip
                       size="small"
-                      icon={m.direction === "UP" ? <TrendingUpOutlined /> : <TrendingDownOutlined />}
-                      label={`${m.scoreChange >= 0 ? "+" : ""}${fmt(m.scoreChange)}`}
-                      color={m.direction === "UP" ? "success" : "error"}
+                      icon={movement.direction === "UP" ? <TrendingUpOutlined /> : <TrendingDownOutlined />}
+                      label={`${movement.scoreChange >= 0 ? "+" : ""}${fmt(movement.scoreChange)}`}
+                      color={movement.direction === "UP" ? "success" : "error"}
                       variant="outlined"
                     />
                   </TableCell>
-                  <TableCell>{m.previousDecision}</TableCell>
-                  <TableCell>{m.currentDecision}</TableCell>
+                  <TableCell>{movement.previousDecision}</TableCell>
+                  <TableCell>{movement.currentDecision}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -489,8 +513,6 @@ function ScoreHistoryTab() {
     </Box>
   );
 }
-
-// ─── Weight Optimizer Tab ───
 
 function WeightOptimizerTab() {
   const [report, setReport] = useState<OptimizationReport | null>(null);
@@ -502,9 +524,9 @@ function WeightOptimizerTab() {
     setLoading(true);
     setError("");
     try {
-      setReport(await notificationApi.optimizeWeights(parseInt(forwardMonths) || 3));
-    } catch (e) {
-      setError(apiErr(e));
+      setReport(await notificationApi.optimizeWeights(Number.parseInt(forwardMonths, 10) || 3));
+    } catch (err) {
+      setError(apiErr(err));
     } finally {
       setLoading(false);
     }
@@ -513,8 +535,7 @@ function WeightOptimizerTab() {
   return (
     <Box>
       <Stack direction="row" spacing={1.5} sx={{ mb: 3, alignItems: "center" }}>
-        <TextField size="small" label="Forward months" type="number" value={forwardMonths}
-                   onChange={(e) => setForwardMonths(e.target.value)} sx={{ width: 140 }} />
+        <TextField size="small" label="Forward months" type="number" value={forwardMonths} onChange={(e) => setForwardMonths(e.target.value)} sx={{ width: 150 }} />
         <Button variant="contained" size="small" startIcon={<TuneOutlined />} onClick={run} disabled={loading}>
           Chạy tối ưu
         </Button>
@@ -526,60 +547,56 @@ function WeightOptimizerTab() {
       {report && (
         <Card variant="outlined">
           <CardContent>
-            <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 2 }}>
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 2, flexWrap: "wrap" }}>
               <Chip label={report.status} color={report.status === "COMPLETED" ? "success" : "warning"} />
               <Typography variant="body2">Mẫu: {report.sampleCount}</Typography>
-              {report.forwardMonths != null && (
-                <Typography variant="body2">Forward: {report.forwardMonths} tháng</Typography>
-              )}
+              {report.forwardMonths != null && <Typography variant="body2">Forward: {report.forwardMonths} tháng</Typography>}
             </Stack>
 
             <Alert severity={report.shouldApply ? "success" : "info"} sx={{ mb: 2 }}>{report.message}</Alert>
 
-            {report.currentWeights && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Weights hiện tại vs đề xuất</Typography>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Thành phần</TableCell>
-                        <TableCell align="right">Hiện tại</TableCell>
-                        <TableCell align="right">Đề xuất</TableCell>
-                        <TableCell align="right">Thay đổi</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {Object.keys(report.currentWeights).map((k) => {
-                        const cur = report.currentWeights[k];
-                        const sug = report.suggestedWeights?.[k];
-                        const diff = sug != null ? sug - cur : null;
-                        return (
-                          <TableRow key={k} hover>
-                            <TableCell sx={{ fontWeight: 600 }}>{k}</TableCell>
-                            <TableCell align="right">{(cur * 100).toFixed(0)}%</TableCell>
-                            <TableCell align="right">{sug != null ? `${(sug * 100).toFixed(0)}%` : "—"}</TableCell>
-                            <TableCell align="right">
-                              {diff != null && Math.abs(diff) >= 0.01 ? (
-                                <Chip
-                                  size="small"
-                                  label={`${diff >= 0 ? "+" : ""}${(diff * 100).toFixed(0)}%`}
-                                  color={Math.abs(diff) >= 0.03 ? "warning" : "default"}
-                                  variant="outlined"
-                                />
-                              ) : "—"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-            )}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Weights hiện tại vs đề xuất</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Thành phần</TableCell>
+                      <TableCell align="right">Hiện tại</TableCell>
+                      <TableCell align="right">Đề xuất</TableCell>
+                      <TableCell align="right">Thay đổi</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Object.keys(report.currentWeights ?? {}).map((key) => {
+                      const current = report.currentWeights[key];
+                      const suggested = report.suggestedWeights?.[key];
+                      const diff = suggested != null ? suggested - current : null;
+                      return (
+                        <TableRow key={key} hover>
+                          <TableCell sx={{ fontWeight: 600 }}>{key}</TableCell>
+                          <TableCell align="right">{(current * 100).toFixed(0)}%</TableCell>
+                          <TableCell align="right">{suggested != null ? `${(suggested * 100).toFixed(0)}%` : "—"}</TableCell>
+                          <TableCell align="right">
+                            {diff != null && Math.abs(diff) >= 0.01 ? (
+                              <Chip
+                                size="small"
+                                label={`${diff >= 0 ? "+" : ""}${(diff * 100).toFixed(0)}%`}
+                                color={Math.abs(diff) >= 0.03 ? "warning" : "default"}
+                                variant="outlined"
+                              />
+                            ) : "—"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
 
             {report.currentCorrelation != null && (
-              <Stack direction="row" spacing={3} sx={{ mb: 2 }}>
+              <Stack direction="row" spacing={3} sx={{ mb: 2, flexWrap: "wrap" }}>
                 <Typography variant="body2">Correlation hiện tại: <strong>{fmt(report.currentCorrelation)}</strong></Typography>
                 {report.suggestedCorrelation != null && (
                   <Typography variant="body2">Correlation đề xuất: <strong>{fmt(report.suggestedCorrelation)}</strong></Typography>
@@ -593,8 +610,8 @@ function WeightOptimizerTab() {
             {report.insights && report.insights.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Insights</Typography>
-                {report.insights.map((ins, i) => (
-                  <Typography key={i} variant="body2" sx={{ ml: 1 }}>• {ins}</Typography>
+                {report.insights.map((insight, index) => (
+                  <Typography key={index} variant="body2" sx={{ ml: 1 }}>• {insight}</Typography>
                 ))}
               </Box>
             )}
@@ -605,24 +622,22 @@ function WeightOptimizerTab() {
   );
 }
 
-// ─── Main Page ───
-
 export default function AlertCenterPage() {
   const [tab, setTab] = useState(0);
 
   return (
     <Box>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 3 }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 3, flexWrap: "wrap" }}>
         <NotificationsActiveOutlined color="primary" sx={{ fontSize: 28 }} />
         <Typography variant="h5" sx={{ fontWeight: 800 }}>Trung tâm cảnh báo</Typography>
         <Chip size="small" label="Tín hiệu mô phỏng — Không phải khuyến nghị đầu tư" color="warning" variant="outlined" />
       </Stack>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+      <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 3 }}>
         <Tab label="Thông báo realtime" />
-        <Tab label="Watchlist & Cảnh báo" />
-        <Tab label="Lịch sử Score" />
-        <Tab label="Tối ưu Weights" />
+        <Tab label="Watchlist & cảnh báo" />
+        <Tab label="Lịch sử score" />
+        <Tab label="Tối ưu weights" />
       </Tabs>
 
       {tab === 0 && <NotificationsTab />}
