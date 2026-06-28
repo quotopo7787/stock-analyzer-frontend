@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import {
-  AppBar, Avatar, Badge, Box, Drawer, IconButton, List, ListItemButton, ListItemIcon,
+  AppBar, Avatar, Badge, Box, Collapse, Drawer, IconButton, List, ListItemButton, ListItemIcon,
   ListItemText, Paper, Stack, Toolbar, Typography, Chip,
 } from "@mui/material";
 import {
@@ -8,6 +8,7 @@ import {
   NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ScienceOutlined, ShowChart, SignalCellularAlt,
   StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined, SavingsOutlined, ReceiptLongOutlined,
 } from "@mui/icons-material";
+import type { ReactNode } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 const drawerWidth = 252;
@@ -16,30 +17,84 @@ const sidebarBg = "#061b33";
 const sidebarBg2 = "#082544";
 const sidebarText = "rgba(236, 246, 255, 0.88)";
 const sidebarMuted = "rgba(207, 225, 245, 0.62)";
-const navItems = [
-  { label: "Tổng quan", to: "/", icon: <DashboardOutlined /> },
-  { label: "Cơ hội", to: "/opportunities", icon: <QueryStatsOutlined /> },
-  { label: "Hồ sơ nghiên cứu", to: "/investment-thesis", icon: <FolderOutlined /> },
-  { label: "Watchlist", to: "/watchlist", icon: <StarBorderOutlined /> },
-  { label: "Kế hoạch đầu tư", to: "/decision-plans", icon: <EventNoteOutlined /> },
-  { label: "Định giá", to: "/valuation-scenarios", icon: <CalculateOutlined /> },
-  { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
-  { label: "Phân bổ vốn", to: "/portfolio-allocation", icon: <AccountBalanceWalletOutlined /> },
-  { label: "Sổ tiền mặt", to: "/portfolio-cash-ledger", icon: <SavingsOutlined /> },
-  { label: "Sổ giao dịch", to: "/portfolio-transactions", icon: <ReceiptLongOutlined /> },
-  { label: "Paper Trading", to: "/paper-trading", icon: <ScienceOutlined /> },
-  { label: "Backtest tín hiệu", to: "/backtest", icon: <ScienceOutlined /> },
-  { label: "Bảng giá realtime", to: "/realtime", icon: <ShowChart /> },
+
+type NavItem = {
+  label: string;
+  to: string;
+  icon: ReactNode;
+};
+
+type NavSection = NavItem | {
+  label: string;
+  items: NavItem[];
+};
+
+const hasSectionItems = (section: NavSection): section is Extract<NavSection, { items: NavItem[] }> =>
+  "items" in section;
+
+const navSections: NavSection[] = [
+  {
+    label: "Tổng quan",
+    to: "/",
+    icon: <DashboardOutlined />,
+  },
+  {
+    label: "Thị trường & Cơ hội",
+    items: [
+      { label: "Cơ hội", to: "/opportunities", icon: <QueryStatsOutlined /> },
+      { label: "Bảng giá realtime", to: "/realtime", icon: <ShowChart /> },
+    ],
+  },
+  {
+    label: "Nghiên cứu cổ phiếu",
+    items: [
+      { label: "Hồ sơ nghiên cứu", to: "/investment-thesis", icon: <FolderOutlined /> },
+      { label: "Watchlist", to: "/watchlist", icon: <StarBorderOutlined /> },
+      { label: "Định giá", to: "/valuation-scenarios", icon: <CalculateOutlined /> },
+    ],
+  },
+  {
+    label: "Danh mục & Vốn",
+    items: [
+      { label: "Danh mục đầu tư", to: "/portfolio", icon: <PieChartOutlined /> },
+      { label: "Phân bổ vốn", to: "/portfolio-allocation", icon: <AccountBalanceWalletOutlined /> },
+      { label: "Kế hoạch đầu tư", to: "/decision-plans", icon: <EventNoteOutlined /> },
+    ],
+  },
+  {
+    label: "Sổ sách",
+    items: [
+      { label: "Sổ giao dịch", to: "/portfolio-transactions", icon: <ReceiptLongOutlined /> },
+      { label: "Sổ tiền mặt", to: "/portfolio-cash-ledger", icon: <SavingsOutlined /> },
+    ],
+  },
+  {
+    label: "Kiểm chứng",
+    items: [
+      { label: "Paper Trading", to: "/paper-trading", icon: <ScienceOutlined /> },
+      { label: "Backtest tín hiệu", to: "/backtest", icon: <ScienceOutlined /> },
+    ],
+  },
 ];
+const navItems = navSections.flatMap((section) => hasSectionItems(section) ? section.items : [section]);
 
 export default function AppLayout() {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navSections.filter(hasSectionItems).map((section) => [section.label, false])),
+  );
   const now = new Date();
   const currentDrawerWidth = sidebarCollapsed ? collapsedDrawerWidth : drawerWidth;
   const activeItem = navItems.find((item) =>
     item.to === "/" ? location.pathname === item.to : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`),
   );
+  const isItemActive = (to: string) =>
+    to === "/" ? location.pathname === to : location.pathname === to || location.pathname.startsWith(`${to}/`);
+  const isSectionActive = (section: NavSection) => hasSectionItems(section) && section.items.some((item) => isItemActive(item.to));
+  const toggleSection = (label: string) => {
+    setExpandedSections((current) => ({ ...current, [label]: !current[label] }));
+  };
 
   return <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
     <AppBar
@@ -198,53 +253,160 @@ export default function AppLayout() {
       </Toolbar>
       <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, p: sidebarCollapsed ? 1.1 : 1.6 }}>
         <List sx={{ pt: 1.2, overflowY: "auto", pr: sidebarCollapsed ? 0 : 0.5 }}>
-          {navItems.map((item) => {
-            const active = item.to === "/" ? location.pathname === item.to : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
-            return <ListItemButton
-              key={item.to}
-              component={Link}
-              to={item.to}
-              selected={active}
-              title={sidebarCollapsed ? item.label : undefined}
-              sx={{
-                borderRadius: 2.5,
-                mb: 0.45,
-                minHeight: 46,
-                px: sidebarCollapsed ? 1 : 1.2,
-                justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                color: active ? "#ffffff" : sidebarText,
-                transition: "background-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.08)", transform: "translateX(2px)" },
-                "&.Mui-selected": {
-                  background: "linear-gradient(135deg, rgba(47,127,255,0.95) 0%, rgba(13,87,201,0.92) 100%)",
-                  color: "#ffffff",
-                  boxShadow: "inset 3px 0 0 rgba(255,255,255,0.92), 0 14px 28px rgba(0, 83, 197, 0.26)",
-                },
-                "&.Mui-selected:hover": { bgcolor: "rgba(47,127,255,0.95)" },
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: 40,
-                  justifyContent: "center",
-                  mr: sidebarCollapsed ? 0 : undefined,
-                  color: active ? "#ffffff" : sidebarMuted,
-                  "& svg": {
-                    fontSize: 22,
-                    p: active ? 0.55 : 0,
-                    borderRadius: active ? 2 : 0,
-                    bgcolor: active ? "rgba(255,255,255,0.16)" : "transparent",
-                    boxSizing: "content-box",
-                  },
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
+          {navSections.map((section) => {
+            if (!hasSectionItems(section)) {
+              const active = isItemActive(section.to);
+              return (
+                <Box key={section.label} sx={{ mb: sidebarCollapsed ? 1 : 1.35 }}>
+                  <ListItemButton
+                    component={Link}
+                    to={section.to}
+                    selected={active}
+                    title={sidebarCollapsed ? section.label : undefined}
+                    sx={{
+                      borderRadius: 2.5,
+                      mb: 0.45,
+                      minHeight: 44,
+                      px: sidebarCollapsed ? 1 : 1.2,
+                      justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                      color: active ? "#ffffff" : sidebarText,
+                      transition: "background-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease",
+                      "&:hover": { bgcolor: "rgba(255,255,255,0.08)", transform: "translateX(2px)" },
+                      "&.Mui-selected": {
+                        background: "linear-gradient(135deg, rgba(47,127,255,0.95) 0%, rgba(13,87,201,0.92) 100%)",
+                        color: "#ffffff",
+                        boxShadow: "inset 3px 0 0 rgba(255,255,255,0.92), 0 14px 28px rgba(0, 83, 197, 0.26)",
+                      },
+                      "&.Mui-selected:hover": { bgcolor: "rgba(47,127,255,0.95)" },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 40,
+                        justifyContent: "center",
+                        mr: sidebarCollapsed ? 0 : undefined,
+                        color: active ? "#ffffff" : sidebarMuted,
+                        "& svg": {
+                          fontSize: 22,
+                          p: active ? 0.55 : 0,
+                          borderRadius: active ? 2 : 0,
+                          bgcolor: active ? "rgba(255,255,255,0.16)" : "transparent",
+                          boxSizing: "content-box",
+                        },
+                      }}
+                    >
+                      {section.icon}
+                    </ListItemIcon>
+                    {!sidebarCollapsed && (
+                      <ListItemText primary={section.label} slotProps={{ primary: { sx: { fontWeight: active ? 750 : 560, fontSize: 14, letterSpacing: 0 } } }} />
+                    )}
+                  </ListItemButton>
+                </Box>
+              );
+            }
+            const sectionActive = isSectionActive(section);
+            const sectionOpen = sidebarCollapsed || expandedSections[section.label];
+            return (
+            <Box key={section.label} sx={{ mb: sidebarCollapsed ? 1 : 1.35 }}>
               {!sidebarCollapsed && (
-                <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: active ? 750 : 560, fontSize: 14, letterSpacing: 0 } } }} />
+                <ListItemButton
+                  onClick={() => toggleSection(section.label)}
+                  sx={{
+                    minHeight: 30,
+                    px: 1.3,
+                    py: 0.45,
+                    mb: 0.45,
+                    borderRadius: 2,
+                    color: sectionActive ? "#dcecff" : "rgba(207, 225, 245, 0.58)",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.06)" },
+                  }}
+                >
+                  <ListItemText
+                    primary={section.label}
+                    slotProps={{
+                      primary: {
+                        sx: {
+                          fontSize: 11,
+                          fontWeight: 850,
+                          letterSpacing: 0.7,
+                          textTransform: "uppercase",
+                        },
+                      },
+                    }}
+                  />
+                  <ExpandMore
+                    fontSize="small"
+                    sx={{
+                      color: "rgba(207, 225, 245, 0.66)",
+                      transform: sectionOpen ? "rotate(0deg)" : "rotate(-90deg)",
+                      transition: "transform .18s ease",
+                    }}
+                  />
+                </ListItemButton>
               )}
-            </ListItemButton>;
-          })}
+              {sidebarCollapsed && (
+                <Box
+                  title={section.label}
+                  sx={{
+                    width: 30,
+                    height: 1,
+                    mx: "auto",
+                    mb: 0.7,
+                    bgcolor: "rgba(255,255,255,0.12)",
+                  }}
+                />
+              )}
+              <Collapse in={sectionOpen} timeout="auto" unmountOnExit={!sectionActive && !sidebarCollapsed}>
+                {section.items.map((item) => {
+                  const active = isItemActive(item.to);
+                  return <ListItemButton
+                    key={item.to}
+                    component={Link}
+                    to={item.to}
+                    selected={active}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    sx={{
+                      borderRadius: 2.5,
+                      mb: 0.45,
+                      minHeight: 44,
+                      px: sidebarCollapsed ? 1 : 1.2,
+                      justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                      color: active ? "#ffffff" : sidebarText,
+                      transition: "background-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease",
+                      "&:hover": { bgcolor: "rgba(255,255,255,0.08)", transform: "translateX(2px)" },
+                      "&.Mui-selected": {
+                        background: "linear-gradient(135deg, rgba(47,127,255,0.95) 0%, rgba(13,87,201,0.92) 100%)",
+                        color: "#ffffff",
+                        boxShadow: "inset 3px 0 0 rgba(255,255,255,0.92), 0 14px 28px rgba(0, 83, 197, 0.26)",
+                      },
+                      "&.Mui-selected:hover": { bgcolor: "rgba(47,127,255,0.95)" },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 40,
+                        justifyContent: "center",
+                        mr: sidebarCollapsed ? 0 : undefined,
+                        color: active ? "#ffffff" : sidebarMuted,
+                        "& svg": {
+                          fontSize: 22,
+                          p: active ? 0.55 : 0,
+                          borderRadius: active ? 2 : 0,
+                          bgcolor: active ? "rgba(255,255,255,0.16)" : "transparent",
+                          boxSizing: "content-box",
+                        },
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+                    {!sidebarCollapsed && (
+                      <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: active ? 750 : 560, fontSize: 14, letterSpacing: 0 } } }} />
+                    )}
+                  </ListItemButton>;
+                })}
+              </Collapse>
+            </Box>
+          );})}
         </List>
         {!sidebarCollapsed && <Box sx={{ mt: "auto" }}>
           <Paper variant="outlined" sx={{ p: 1.5, mb: 1, bgcolor: "rgba(255,255,255,0.07)", boxShadow: "none", borderColor: "rgba(255,255,255,0.12)", borderRadius: 3, color: sidebarText }}>
