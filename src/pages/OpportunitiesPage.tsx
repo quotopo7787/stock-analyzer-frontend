@@ -135,7 +135,7 @@ const defaultFilters: OpportunityQueryParams = {
   sort: "finalScoreDesc",
 };
 
-const decisionOptions = ["WATCHLIST", "REVIEW", "AVOID"];
+const decisionOptions = ["RESEARCH_NOW", "WATCHLIST", "WAIT_FOR_PRICE", "REVIEW", "AVOID"];
 const industryOptions = [
   "BANK",
   "FINANCIAL_SERVICES",
@@ -1658,6 +1658,16 @@ function OpportunityDetailDrawer({
                     tooltip="P/B = giá cổ phiếu chia cho giá trị sổ sách mỗi cổ phiếu. Hữu ích với ngân hàng, bảo hiểm và doanh nghiệp tài sản lớn."
                     value={formatNumber(detail.pb)}
                   />
+                  <MetricLine
+                    label="ROIC"
+                    tooltip="Return on Invested Capital — lợi nhuận trên vốn đầu tư. ROIC > 15% thường cho thấy lợi thế cạnh tranh bền vững."
+                    value={detail.roic != null ? formatPercent(detail.roic) : "-"}
+                  />
+                  <MetricLine
+                    label="FCF Yield"
+                    tooltip="Free Cash Flow Yield — tỷ suất dòng tiền tự do trên vốn hóa. FCF Yield > 8% thường hấp dẫn."
+                    value={detail.fcfYield != null ? formatPercent(detail.fcfYield) : "-"}
+                  />
                   <MetricLine label="Điểm định giá" value={formatNumber(detail.valueScore)} />
                   <MetricLine label="Biên an toàn" value={formatNumber(detail.marginOfSafetyScore)} />
                 </Box>
@@ -1816,6 +1826,20 @@ function AlphaSnapshotCard({ detail }: { detail: OpportunityDetailItem }) {
               </Box>
             ))}
           </Box>
+
+          {detail.decisionSubLabel && (
+            <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center", fontStyle: "italic" }}>
+              {detail.decisionSubLabel}
+            </Typography>
+          )}
+
+          {detail.positiveReasonLabels && detail.positiveReasonLabels.length > 0 && (
+            <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", justifyContent: "center", gap: 0.5 }}>
+              {detail.positiveReasonLabels.map((label: string) => (
+                <Chip key={label} label={label} size="small" color="success" variant="outlined" sx={compactChipSx} />
+              ))}
+            </Stack>
+          )}
 
           <Stack spacing={0.75}>
             {scoreBars.map((item) => {
@@ -2950,6 +2974,7 @@ function decisionLabel(value?: string | null, fallback?: string | null) {
   const labels: Record<string, string> = {
     RESEARCH_NOW: "Nghiên cứu ngay",
     WATCHLIST: "Theo dõi",
+    WAIT_FOR_PRICE: "Chờ giá về",
     REVIEW: "Cần review",
     AVOID: "Tạm tránh",
   };
@@ -3202,8 +3227,12 @@ function scoreColor(score?: number | null): BadgeColor {
 
 function decisionColor(value?: string | null): BadgeColor {
   switch (value) {
+    case "RESEARCH_NOW":
+      return "success";
     case "WATCHLIST":
       return "primary";
+    case "WAIT_FOR_PRICE":
+      return "info";
     case "REVIEW":
       return "warning";
     case "AVOID":

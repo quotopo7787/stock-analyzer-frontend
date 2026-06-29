@@ -1,4 +1,4 @@
-export type Decision = "RESEARCH_NOW" | "WATCHLIST" | "REVIEW" | "AVOID";
+export type Decision = "RESEARCH_NOW" | "WATCHLIST" | "WAIT_FOR_PRICE" | "REVIEW" | "AVOID";
 
 export type DecisionReasonCode =
   | "LOW_LIQUIDITY"
@@ -174,8 +174,13 @@ export interface OpportunitySummaryItem {
   decision: Decision | string;
   decisionLabel?: string | null;
   decisionReasonCode?: DecisionReasonCode | string | null;
+  decisionSubLabel?: string | null;
   decisionReasonCodes: string[];
   decisionReasonLabels: string[];
+  positiveReasonCodes?: string[];
+  positiveReasonLabels?: string[];
+  roic?: number | null;
+  fcfYield?: number | null;
   opportunityType?: string | null;
   revenueCagr?: number | null;
   profitCagr?: number | null;
