@@ -102,7 +102,18 @@ function NotificationsTab() {
 
     eventSource.onopen = () => setSseConnected(true);
     eventSource.onerror = () => setSseConnected(false);
-    eventSource.onmessage = pushNotification;
+    eventSource.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "CONNECTED" || data.type === "HEARTBEAT") {
+          setSseConnected(true);
+          return;
+        }
+        pushNotification(event);
+      } catch {
+        // ignore
+      }
+    };
     for (const type of ["SCORE_CHANGE", "WATCHLIST_ALERT", "OPPORTUNITY_SIGNAL"]) {
       eventSource.addEventListener(type, pushNotification as EventListener);
     }

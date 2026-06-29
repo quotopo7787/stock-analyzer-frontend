@@ -108,7 +108,13 @@ export default function AppLayout() {
         setUnreadCount((c) => c + 1);
       } catch { /* ignore */ }
     };
-    es.onmessage = handler;
+    es.onmessage = (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "CONNECTED" || data.type === "HEARTBEAT") return;
+        handler(e);
+      } catch { /* ignore */ }
+    };
     for (const t of ["SCORE_CHANGE", "WATCHLIST_ALERT", "OPPORTUNITY_SIGNAL"]) {
       es.addEventListener(t, handler as EventListener);
     }
