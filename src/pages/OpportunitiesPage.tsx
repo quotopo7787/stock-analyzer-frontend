@@ -53,6 +53,7 @@ import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { Link, useNavigate } from "react-router-dom";
 import { macroContextApi } from "../api/macroContextApi";
 import { opportunitiesApi } from "../api/opportunitiesApi";
+import { sectorContextApi } from "../api/sectorContextApi";
 import {
   createResearchThesisDraftId,
   researchThesisDraftStorage,
@@ -63,6 +64,7 @@ import MetricTooltip from "../components/MetricTooltip";
 import type {
   OpportunityDetailItem,
   OpportunityQueryParams,
+  SectorDecisionContext,
   OpportunitySummaryItem,
   OpportunityWrappedResponse,
 } from "../types/opportunities";
@@ -211,6 +213,9 @@ export default function OpportunitiesPage() {
   const [macroContext, setMacroContext] = useState<MacroContext | null>(null);
   const [macroContextLoading, setMacroContextLoading] = useState(false);
   const [macroContextError, setMacroContextError] = useState("");
+  const [sectorContext, setSectorContext] = useState<SectorDecisionContext | null>(null);
+  const [sectorContextLoading, setSectorContextLoading] = useState(false);
+  const [sectorContextError, setSectorContextError] = useState("");
 
   const items = data?.items ?? [];
   const summary = data?.summary;
@@ -295,11 +300,14 @@ export default function OpportunitiesPage() {
     setPriceHistoryError("");
     setMacroContext(null);
     setMacroContextError("");
+    setSectorContext(null);
+    setSectorContextError("");
     setActionMessage("");
     setActionError("");
     setDetailLoading(true);
     setPriceHistoryLoading(true);
     setMacroContextLoading(true);
+    setSectorContextLoading(true);
 
     let embeddedMacroLoaded = false;
 
@@ -353,6 +361,16 @@ export default function OpportunitiesPage() {
         setMacroContextLoading(false);
       }
     }
+
+    try {
+      const context = await sectorContextApi.getBySymbol(item.code);
+      setSectorContext(context);
+    } catch (error) {
+      console.warn("Sector context unavailable", error);
+      setSectorContextError("Chưa tải được bối cảnh ngành cho mã này.");
+    } finally {
+      setSectorContextLoading(false);
+    }
   };
 
   const closeDetail = () => {
@@ -363,6 +381,8 @@ export default function OpportunitiesPage() {
     setPriceHistoryError("");
     setMacroContext(null);
     setMacroContextError("");
+    setSectorContext(null);
+    setSectorContextError("");
     setActionMessage("");
     setActionError("");
   };
@@ -715,6 +735,9 @@ export default function OpportunitiesPage() {
         macroContext={macroContext}
         macroContextLoading={macroContextLoading}
         macroContextError={macroContextError}
+        sectorContext={sectorContext}
+        sectorContextLoading={sectorContextLoading}
+        sectorContextError={sectorContextError}
         loading={detailLoading}
         error={detailError}
         actionMessage={actionMessage}
@@ -822,6 +845,121 @@ function MacroMetric({ label, value, emphasize = false }: { label: string; value
       </Typography>
     </Box>
   );
+}
+
+function SectorDecisionContextCard({
+  detail,
+  context,
+  loading,
+  error,
+}: {
+  detail: OpportunityDetailItem;
+  context: SectorDecisionContext | null;
+  loading: boolean;
+  error: string;
+}) {
+  const resolvedContext = context ?? detail.sectorContext;
+  const bias = resolvedContext?.sectorDecisionBias ?? "INSUFFICIENT_DATA";
+  const signals = resolvedContext?.sectorSignals ?? [];
+  const warnings = resolvedContext?.sectorWarnings ?? [];
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "flex-start" } }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mb: 0.75 }}>
+              <TrendingUpOutlinedIcon color="primary" fontSize="small" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 850 }}>
+                Bối cảnh ngành
+              </Typography>
+              <Chip size="small" color={sectorBiasColor(bias)} label={sectorBiasLabel(bias)} sx={{ fontWeight: 750 }} />
+              {resolvedContext?.sectorMomentum && (
+                <Chip size="small" variant="outlined" color={sectorMomentumColor(resolvedContext.sectorMomentum)} label={sectorMomentumLabel(resolvedContext.sectorMomentum)} />
+              )}
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              Lớp đọc sức mạnh ngành và sức mạnh tương đối của mã, chỉ hỗ trợ timing/quyết định, không đổi finalScore.
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(4, minmax(104px, 1fr))" }, gap: 1, minWidth: { md: 520 } }}>
+            <MacroMetric label="Điểm ngành" value={formatScore(resolvedContext?.sectorScore)} emphasize />
+            <MacroMetric label="RS 20D" value={formatSignedPercent(resolvedContext?.relativeStrength20D)} />
+            <MacroMetric label="RS 60D" value={formatSignedPercent(resolvedContext?.relativeStrength60D)} />
+            <MacroMetric label="Mẫu ngành" value={resolvedContext?.sampleSize != null ? `${resolvedContext.sampleSize} mã` : "-"} />
+          </Box>
+        </Stack>
+
+        {loading && <LinearProgress sx={{ mt: 1.5 }} />}
+        {error && !loading && (
+          <Alert severity="warning" sx={{ mt: 1.5, py: 0.75 }}>
+            {error}
+          </Alert>
+        )}
+
+        {resolvedContext?.decisionSupportNote && (
+          <Alert severity={bias === "SUPPORTIVE" ? "success" : bias === "CAUTION" || bias === "RISK_OFF" ? "warning" : "info"} sx={{ mt: 1.5, py: 0.75 }}>
+            {resolvedContext.decisionSupportNote}
+          </Alert>
+        )}
+
+        <Box sx={{ mt: 1.5, display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.25 }}>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, fontWeight: 700 }}>
+              Tín hiệu hỗ trợ
+            </Typography>
+            <Stack spacing={0.6}>
+              {(signals.length ? signals : ["Chưa có tín hiệu ngành hỗ trợ rõ ràng."]).map((text) => (
+                <Alert key={text} severity={signals.length ? "success" : "info"} sx={{ py: 0.55, px: 1 }}>
+                  {text}
+                </Alert>
+              ))}
+            </Stack>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, fontWeight: 700 }}>
+              Cảnh báo
+            </Typography>
+            <Stack spacing={0.6}>
+              {(warnings.length ? warnings : ["Chưa có cảnh báo ngành lớn."]).map((text) => (
+                <Alert key={text} severity={warnings.length ? "warning" : "info"} sx={{ py: 0.55, px: 1 }}>
+                  {text}
+                </Alert>
+              ))}
+            </Stack>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatSignedPercent(value?: number | null) {
+  if (value == null || !Number.isFinite(value)) return "-";
+  return `${value > 0 ? "+" : ""}${formatNumber(value)}%`;
+}
+
+function sectorBiasLabel(code?: string | null): string {
+  const labels: Record<string, string> = {
+    SUPPORTIVE: "Ủng hộ",
+    NEUTRAL: "Trung tính",
+    CAUTION: "Cần thận trọng",
+    RISK_OFF: "Rủi ro cao",
+    INSUFFICIENT_DATA: "Thiếu dữ liệu",
+  };
+  return code ? labels[code] ?? code : "Thiếu dữ liệu";
+}
+
+function sectorBiasColor(code?: string | null): "success" | "warning" | "error" | "info" | "default" {
+  const colors: Record<string, "success" | "warning" | "error" | "info" | "default"> = {
+    SUPPORTIVE: "success",
+    NEUTRAL: "info",
+    CAUTION: "warning",
+    RISK_OFF: "error",
+    INSUFFICIENT_DATA: "default",
+  };
+  return code ? colors[code] ?? "default" : "default";
 }
 
 function SnapshotStatusBar({ meta, compact = false }: { meta: OpportunityWrappedResponse["meta"]; compact?: boolean }) {
@@ -1181,6 +1319,9 @@ function OpportunityDetailDrawer({
   macroContext,
   macroContextLoading,
   macroContextError,
+  sectorContext,
+  sectorContextLoading,
+  sectorContextError,
   loading,
   error,
   actionMessage,
@@ -1200,6 +1341,9 @@ function OpportunityDetailDrawer({
   macroContext: MacroContext | null;
   macroContextLoading: boolean;
   macroContextError: string;
+  sectorContext: SectorDecisionContext | null;
+  sectorContextLoading: boolean;
+  sectorContextError: string;
   loading: boolean;
   error: string;
   actionMessage: string;
@@ -1382,6 +1526,13 @@ function OpportunityDetailDrawer({
               loading={macroContextLoading}
               error={macroContextError}
               fallbackFinalScore={detail.finalScore}
+            />
+
+            <SectorDecisionContextCard
+              detail={detail}
+              context={sectorContext}
+              loading={sectorContextLoading}
+              error={sectorContextError}
             />
 
             <ValuationV2CompactTable detail={detail} />

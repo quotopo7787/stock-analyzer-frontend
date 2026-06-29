@@ -203,6 +203,7 @@ export interface OpportunitySummaryItem {
   priceTrendLevel?: PriceTrendLevel | string | null;
   sectorMomentum?: string | null;
   sectorRotationAdjustment?: number | null;
+  sectorContext?: SectorDecisionContext | null;
   sectorSpecific?: boolean | null;
   notApplicableMetrics?: string[];
   missingRequiredMetrics?: string[];
@@ -241,6 +242,29 @@ export interface OpportunitySummaryItem {
   researchReadinessLabel?: string | null;
   executionReadiness?: ExecutionReadiness | string | null;
   executionReadinessLabel?: string | null;
+}
+
+export interface SectorDecisionContext {
+  stockCode?: string | null;
+  industry?: string | null;
+  industryGroup?: string | null;
+  sectorScore?: number | null;
+  sectorDecisionBias?: string | null;
+  sectorMomentum?: string | null;
+  sectorRotationAdjustment?: number | null;
+  stockReturn20D?: number | null;
+  sectorReturn20D?: number | null;
+  relativeStrength20D?: number | null;
+  stockReturn60D?: number | null;
+  sectorReturn60D?: number | null;
+  relativeStrength60D?: number | null;
+  volumeRatio20D?: number | null;
+  sampleSize?: number | null;
+  dataQuality?: string | null;
+  sectorSignals?: string[];
+  sectorWarnings?: string[];
+  decisionSupportNote?: string | null;
+  calculatedAt?: string | null;
 }
 
 export interface OpportunityDetailItem extends OpportunitySummaryItem {
