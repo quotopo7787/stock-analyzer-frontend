@@ -2390,13 +2390,13 @@ function PriceMovementCard({
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {chart.hoverPoints.map((point) => (
-                <circle key={point.date} cx={point.x} cy={point.y} r="7" fill="transparent">
+              {chart.hoverPoints.map((point, index) => (
+                <circle key={`${point.date}-${point.x}-${index}`} cx={point.x} cy={point.y} r="7" fill="transparent">
                   <title>{`${formatFullDate(point.date)} | Giá ${formatNumber(point.close)}k | KL ${formatNumber(point.volume, 0)}`}</title>
                 </circle>
               ))}
-              {chart.markers.map((marker) => (
-                <g key={marker.label}>
+              {chart.markers.map((marker, index) => (
+                <g key={`${marker.label}-${marker.x}-${marker.y}-${index}`}>
                   <circle cx={marker.x} cy={marker.y} r="4" fill={marker.color} />
                   <text x={marker.x} y={marker.labelY} textAnchor="middle" fontSize="11" fill="#152033" fontWeight="700">
                     {marker.label}
@@ -2412,8 +2412,8 @@ function PriceMovementCard({
               <text x="52" y="244" fontSize="11" fill="#526070">
                 Vol
               </text>
-              {chart.dateLabels.map((label) => (
-                <text key={label.text} x={label.x} y="184" textAnchor={label.anchor} fontSize="11" fill="#526070">
+              {chart.dateLabels.map((label, index) => (
+                <text key={`${label.text}-${label.anchor}-${label.x}-${index}`} x={label.x} y="184" textAnchor={label.anchor} fontSize="11" fill="#526070">
                   {label.text}
                 </text>
               ))}

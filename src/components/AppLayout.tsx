@@ -45,6 +45,7 @@ const navSections: NavSection[] = [
       { label: "Bảng giá realtime", to: "/realtime", icon: <ShowChart /> },
       { label: "Bối cảnh vĩ mô", to: "/macro-context", icon: <PublicOutlined /> },
       { label: "Trung tâm cảnh báo", to: "/alert-center", icon: <NotificationsActiveOutlined /> },
+      { label: "Tín hiệu tin tức", to: "/news-signals", icon: <SignalCellularAlt /> },
     ],
   },
   {
