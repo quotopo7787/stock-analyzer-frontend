@@ -6,7 +6,7 @@ import {
 import {
   AccountBalanceWalletOutlined, CalculateOutlined, DashboardOutlined, EventNoteOutlined, ExpandMore, FolderOutlined, LightModeOutlined,
   NotificationsActiveOutlined, NotificationsNoneOutlined, PieChartOutlined, QueryStatsOutlined, ScienceOutlined, ShowChart, SignalCellularAlt,
-  StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined, SavingsOutlined, ReceiptLongOutlined, PublicOutlined,
+  StarBorderOutlined, SearchOutlined, ChevronLeft, ChevronRight, SettingsOutlined, SavingsOutlined, ReceiptLongOutlined, PublicOutlined, RateReviewOutlined,
 } from "@mui/icons-material";
 import type { ReactNode } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -46,6 +46,7 @@ const navSections: NavSection[] = [
       { label: "Bối cảnh vĩ mô", to: "/macro-context", icon: <PublicOutlined /> },
       { label: "Trung tâm cảnh báo", to: "/alert-center", icon: <NotificationsActiveOutlined /> },
       { label: "Tín hiệu tin tức", to: "/news-signals", icon: <SignalCellularAlt /> },
+      { label: "Review News AI", to: "/news-ai-review", icon: <RateReviewOutlined /> },
     ],
   },
   {
@@ -512,4 +513,3 @@ export default function AppLayout() {
     </Box>
   </Box>;
 }
-
